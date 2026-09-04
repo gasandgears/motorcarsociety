@@ -47,3 +47,21 @@ export const carFiles = sqliteTable(
     uniqueIndex("idx_car_files_storage_key").on(table.storageKey),
   ],
 );
+
+export const carTaskStates = sqliteTable(
+  "car_task_states",
+  {
+    id: text("id").primaryKey(),
+    carId: text("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
+    taskKey: text("task_key").notNull(),
+    status: text("status").notNull(),
+    dueAt: integer("due_at").notNull(),
+    snoozeCount: integer("snooze_count").notNull().default(0),
+    completedAt: integer("completed_at"),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_car_task_states_car_task").on(table.carId, table.taskKey),
+    index("idx_car_task_states_status_due").on(table.status, table.dueAt),
+  ],
+);

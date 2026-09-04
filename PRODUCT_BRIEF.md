@@ -50,3 +50,13 @@ The first prototype demonstrates the collector Registry, private dossier request
 - Photos, PDFs, and videos persist in private R2 storage and reopen with the car file.
 - Every write requires an authenticated visitor already allowed into the private Site.
 - Production email and reminder delivery remain deliberately deferred.
+
+## Version 3: Barnaby’s private action desk
+
+- Barnaby’s Desk is shown only to the account assigned to Barnaby. The temporary Barnaby login is `deankirkland@me.com` until his permanent email replaces it.
+- The Desk API and every task update enforce the same restriction on the server.
+- Every saved car receives one visible next action based on missing seller details, vehicle identification, photos, documents, and handoff status.
+- Overdue work sorts to the top. The Desk shows who owns the action, when it is due, and the car-file completion percentage.
+- Barnaby can open the car, complete the current action, or snooze it once for 24 hours.
+- Completing an action exposes the next unfinished item instead of hiding the car in a general inbox.
+- Cars already sent to Dean are labeled as waiting for Dean rather than appearing as Barnaby’s unfinished work.

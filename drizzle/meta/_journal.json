@@ -15,6 +15,13 @@
       "when": 1788560222769,
       "tag": "0001_free_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788561034594,
+      "tag": "0002_purple_raider",
+      "breakpoints": true
     }
   ]
 }

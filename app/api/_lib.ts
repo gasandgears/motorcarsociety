@@ -20,6 +20,14 @@ export function unauthorized() {
   return Response.json({ error: "Please sign in again." }, { status: 401 });
 }
 
+export function forbidden() {
+  return Response.json({ error: "Barnaby’s Desk is restricted to Barnaby’s account." }, { status: 403 });
+}
+
+export function isBarnaby(user: AuthenticatedUser | null) {
+  return user?.email.trim().toLowerCase() === "deankirkland@me.com";
+}
+
 export function serverError(error: unknown, message = "The request could not be completed.") {
   console.error(error);
   return Response.json({ error: message }, { status: 500 });

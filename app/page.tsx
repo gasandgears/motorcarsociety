@@ -24,5 +24,5 @@ export default async function HomePage() {
     );
   }
 
-  return <MotorcarApp signInPath={signInPath} />;
+  return <MotorcarApp signInPath={signInPath} userEmail={user.email} />;
 }

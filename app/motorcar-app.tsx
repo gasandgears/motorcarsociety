@@ -45,39 +45,6 @@ const inventory = [
   { year: "1973", name: "Porsche 911 Carrera RS", detail: "Touring specification", status: "Available", code: "P" },
 ];
 
-const deskItems = [
-  {
-    car: "1967 Ferrari 330 GTC",
-    owner: "William R. · Newport Beach",
-    task: "Confirm the asking price",
-    action: "Call seller",
-    due: "Due today",
-    progress: 64,
-    tone: "urgent",
-    icon: Phone,
-  },
-  {
-    car: "1956 Jaguar XK140 MC",
-    owner: "Denise K. · San Diego",
-    task: "Title copy and 8 photographs missing",
-    action: "Open checklist",
-    due: "Due Friday",
-    progress: 78,
-    tone: "warning",
-    icon: ListChecks,
-  },
-  {
-    car: "1971 Lamborghini Miura SV",
-    owner: "Private collection · Arizona",
-    task: "Dossier complete and ready",
-    action: "Approve release",
-    due: "Ready now",
-    progress: 100,
-    tone: "ready",
-    icon: Check,
-  },
-];
-
 function Brand() {
   return (
     <div className="flex items-center gap-3">
@@ -92,12 +59,12 @@ function Brand() {
   );
 }
 
-function Header({ view, setView }: { view: View; setView: (view: View) => void }) {
+function Header({ view, setView, canAccessDesk }: { view: View; setView: (view: View) => void; canAccessDesk: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const links: { id: View; label: string }[] = [
     { id: "registry", label: "The Registry" },
     { id: "wanted", label: "Wanted List" },
-    { id: "desk", label: "Barnaby’s Desk" },
+    ...(canAccessDesk ? [{ id: "desk" as View, label: "Barnaby’s Desk" }] : []),
   ];
 
   const selectView = (next: View) => {
@@ -384,22 +351,52 @@ type SavedCarSummary = {
   model: string;
   sellerName: string;
   expectedPrice: string;
+  location: string;
   status: string;
   updatedAt: number;
+  currentAction: {
+    actionKey: string;
+    action: string;
+    assignedTo: string;
+    dueAt: number;
+    snoozeCount: number;
+    status: "open" | "waiting" | "completed";
+    progress: number;
+    tone: "urgent" | "warning" | "ready";
+  };
 };
 
+function deskDueLabel(car: SavedCarSummary, now: number) {
+  if (car.currentAction.status === "waiting") return "With Dean";
+  if (car.currentAction.status === "completed") return "Complete";
+  const difference = car.currentAction.dueAt - now;
+  if (difference <= 0) return "Overdue";
+  if (difference <= 24 * 60 * 60 * 1000) return "Due today";
+  if (difference <= 48 * 60 * 60 * 1000) return "Due tomorrow";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(car.currentAction.dueAt);
+}
+
 function BarnabyDesk({ onAddCar, onOpenCar, signInPath }: { onAddCar: () => void; onOpenCar: (id: string) => void; signInPath: string }) {
-  const [completed, setCompleted] = useState<string[]>([]);
   const [savedCars, setSavedCars] = useState<SavedCarSummary[]>([]);
   const [carsLoading, setCarsLoading] = useState(true);
   const [carsError, setCarsError] = useState("");
+  const [actionSaving, setActionSaving] = useState<string | null>(null);
+  const [deskNotice, setDeskNotice] = useState("");
+  const [deskNow] = useState(() => Date.now());
+
+  const loadDesk = async () => {
+    const response = await fetch("/api/desk");
+    const data = await response.json() as { cars?: SavedCarSummary[]; error?: string };
+    if (!response.ok) throw new Error(data.error || "Barnaby’s action list could not be loaded.");
+    setSavedCars(data.cars || []);
+  };
 
   useEffect(() => {
     let active = true;
-    fetch("/api/cars")
+    fetch("/api/desk")
       .then(async (response) => {
         const data = await response.json() as { cars?: SavedCarSummary[]; error?: string };
-        if (!response.ok) throw new Error(data.error || "Saved cars could not be loaded.");
+        if (!response.ok) throw new Error(data.error || "Barnaby’s action list could not be loaded.");
         if (active) setSavedCars(data.cars || []);
       })
       .catch((error: Error) => { if (active) setCarsError(error.message); })
@@ -407,20 +404,46 @@ function BarnabyDesk({ onAddCar, onOpenCar, signInPath }: { onAddCar: () => void
     return () => { active = false; };
   }, []);
 
+  const updateAction = async (car: SavedCarSummary, operation: "complete" | "snooze") => {
+    setActionSaving(car.id);
+    setCarsError("");
+    setDeskNotice("");
+    try {
+      const response = await fetch(`/api/cars/${car.id}/task`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskKey: car.currentAction.actionKey, operation }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "The action could not be updated.");
+      await loadDesk();
+      setDeskNotice(operation === "complete" ? "Action completed. The next item is ready." : "Reminder moved ahead 24 hours.");
+    } catch (error) {
+      setCarsError(error instanceof Error ? error.message : "The action could not be updated.");
+    } finally {
+      setActionSaving(null);
+    }
+  };
+
+  const openCount = savedCars.filter((car) => car.currentAction.status === "open").length;
+  const withDeanCount = savedCars.filter((car) => car.currentAction.status === "waiting").length;
+
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#e9e5dc] px-5 py-10 text-[#171918] sm:px-8 lg:px-12 lg:py-12">
       <div className="mx-auto max-w-[90rem]">
         <div className="flex flex-col justify-between gap-6 xl:flex-row xl:items-end">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#806c49]">Friday, September 4</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#806c49]">Barnaby’s private workspace</p>
             <h1 className="mt-3 font-display text-5xl leading-none sm:text-6xl">Good morning, Barnaby.</h1>
-            <p className="mt-5 text-xl text-black/61">Three cars need your attention. Start with the phone call.</p>
+            <p className="mt-5 text-xl text-black/61">{carsLoading ? "Loading today’s work…" : openCount === 0 ? "You are caught up." : `${openCount} car${openCount === 1 ? " needs" : "s need"} your attention. Start with the first one.`}</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button onClick={onAddCar} variant="outline" className="h-12 border-black/15 bg-white/50 px-5 text-base hover:bg-white"><FolderOpen className="mr-2 size-5" /> Add a Car</Button>
             <Button className="h-12 bg-[#1a1c1b] px-5 text-base text-white hover:bg-[#343735]"><Gauge className="mr-2 size-5" /> Pipeline</Button>
           </div>
         </div>
+
+        {deskNotice && <div className="mt-6 flex items-center gap-2 rounded-xl border border-[#60765c]/24 bg-[#60765c]/8 px-4 py-3 text-sm font-semibold text-[#52654e]" role="status"><Check className="size-4" />{deskNotice}</div>}
 
         {(carsLoading || carsError || savedCars.length > 0) && (
           <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-6">
@@ -446,36 +469,36 @@ function BarnabyDesk({ onAddCar, onOpenCar, signInPath }: { onAddCar: () => void
 
         <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_22rem]">
           <section className="space-y-4">
-            {deskItems.map((item) => {
-              const done = completed.includes(item.car);
-              const Icon = item.icon;
+            {carsLoading && <div className="h-48 animate-pulse rounded-2xl bg-white/60" />}
+            {!carsLoading && savedCars.length === 0 && <div className="rounded-2xl border border-black/10 bg-white p-8 text-center"><CarFront className="mx-auto size-9 text-[#806c49]" /><h2 className="mt-4 font-display text-3xl">No car files yet.</h2><p className="mt-2 text-black/52">Add the first car and its next action will appear here.</p><Button onClick={onAddCar} className="mt-6 h-12 bg-[#1a1c1b] px-5 text-white hover:bg-[#343735]">Add a Car</Button></div>}
+            {savedCars.map((car) => {
+              const action = car.currentAction;
+              const done = action.status === "completed";
+              const waiting = action.status === "waiting";
+              const Icon = action.actionKey === "seller_contact" ? Phone : action.actionKey === "photos" ? Camera : action.actionKey === "dean_review" || done ? ClipboardCheck : ListChecks;
+              const due = deskDueLabel(car, deskNow);
               return (
-                <article key={item.car} className={`rounded-2xl border bg-white p-5 shadow-[0_12px_36px_rgba(21,23,22,0.06)] sm:p-6 ${done ? "border-[#71866c]/35 opacity-70" : "border-black/10"}`}>
+                <article key={car.id} className={`rounded-2xl border bg-white p-5 shadow-[0_12px_36px_rgba(21,23,22,0.06)] sm:p-6 ${done || waiting ? "border-[#71866c]/35" : "border-black/10"}`}>
                   <div className="grid gap-5 lg:grid-cols-[4rem_1fr_15rem] lg:items-center">
-                    <div className={`grid size-14 place-items-center rounded-xl ${item.tone === "urgent" ? "bg-[#8f3329]/10 text-[#8f3329]" : item.tone === "warning" ? "bg-[#a67b30]/12 text-[#806022]" : "bg-[#60765c]/12 text-[#556951]"}`}>
+                    <div className={`grid size-14 place-items-center rounded-xl ${action.tone === "urgent" ? "bg-[#8f3329]/10 text-[#8f3329]" : action.tone === "warning" ? "bg-[#a67b30]/12 text-[#806022]" : "bg-[#60765c]/12 text-[#556951]"}`}>
                       <Icon className="size-7" />
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <h2 className="font-display text-[1.7rem] leading-tight">{item.car}</h2>
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] ${item.tone === "urgent" ? "bg-[#8f3329]/10 text-[#8f3329]" : item.tone === "warning" ? "bg-[#a67b30]/12 text-[#79591e]" : "bg-[#60765c]/12 text-[#52654e]"}`}>{done ? "Completed" : item.due}</span>
+                        <h2 className="font-display text-[1.7rem] leading-tight">{[car.year, car.make, car.model].filter(Boolean).join(" ") || "New motorcar"}</h2>
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] ${action.tone === "urgent" ? "bg-[#8f3329]/10 text-[#8f3329]" : action.tone === "warning" ? "bg-[#a67b30]/12 text-[#79591e]" : "bg-[#60765c]/12 text-[#52654e]"}`}>{due}</span>
                       </div>
-                      <p className="mt-2 text-[0.95rem] text-black/48">{item.owner}</p>
-                      <p className={`mt-4 text-lg font-semibold ${done ? "line-through" : ""}`}>{item.task}</p>
+                      <p className="mt-2 text-[0.95rem] text-black/48">{car.sellerName || "Seller pending"}{car.location ? ` · ${car.location}` : ""} · Assigned to {action.assignedTo}</p>
+                      <p className={`mt-4 text-lg font-semibold ${done ? "line-through" : ""}`}>{action.action}</p>
                       <div className="mt-4 flex items-center gap-3">
-                        <Progress value={done ? 100 : item.progress} className="h-2 max-w-sm bg-black/8 [&_[data-slot=progress-indicator]]:bg-[#806c49]" />
-                        <span className="text-sm font-semibold text-black/45">{done ? 100 : item.progress}%</span>
+                        <Progress value={action.progress} className="h-2 max-w-sm bg-black/8 [&_[data-slot=progress-indicator]]:bg-[#806c49]" />
+                        <span className="text-sm font-semibold text-black/45">{action.progress}%</span>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 lg:items-stretch">
-                      <Button
-                        disabled={done}
-                        onClick={() => setCompleted((current) => [...current, item.car])}
-                        className="h-12 justify-between bg-[#1a1c1b] px-5 text-base text-white hover:bg-[#343735] disabled:bg-[#60765c] disabled:text-white"
-                      >
-                        {done ? "Done" : item.action}{done ? <Check className="size-5" /> : <ArrowRight className="size-5" />}
-                      </Button>
-                      {!done && item.tone !== "ready" && <Button variant="ghost" className="h-10 text-black/48 hover:bg-black/5 hover:text-black">Remind me at 2:00</Button>}
+                      <Button onClick={() => onOpenCar(car.id)} className="h-12 justify-between bg-[#1a1c1b] px-5 text-base text-white hover:bg-[#343735]">Open car file<ArrowRight className="size-5" /></Button>
+                      {!done && !waiting && <Button disabled={actionSaving === car.id} variant="outline" onClick={() => void updateAction(car, "complete")} className="h-11 border-black/14 bg-white text-black hover:bg-black/5">{actionSaving === car.id ? "Saving…" : "Mark action complete"}</Button>}
+                      {!done && !waiting && <Button disabled={actionSaving === car.id || action.snoozeCount >= 1} variant="ghost" onClick={() => void updateAction(car, "snooze")} className="h-10 text-black/48 hover:bg-black/5 hover:text-black disabled:opacity-45">{action.snoozeCount >= 1 ? "Snooze already used" : "Remind me tomorrow"}</Button>}
                     </div>
                   </div>
                 </article>
@@ -501,10 +524,10 @@ function BarnabyDesk({ onAddCar, onOpenCar, signInPath }: { onAddCar: () => void
             </section>
 
             <section className="rounded-2xl border border-black/10 bg-white/60 p-6">
-              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-black/42">Last 7 days</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-black/42">Current pipeline</p>
               <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-white p-4"><div className="font-display text-4xl">11</div><div className="mt-1 text-sm text-black/52">Actions closed</div></div>
-                <div className="rounded-lg bg-white p-4"><div className="font-display text-4xl">2</div><div className="mt-1 text-sm text-black/52">Cars released</div></div>
+                <div className="rounded-lg bg-white p-4"><div className="font-display text-4xl">{openCount}</div><div className="mt-1 text-sm text-black/52">Open actions</div></div>
+                <div className="rounded-lg bg-white p-4"><div className="font-display text-4xl">{withDeanCount}</div><div className="mt-1 text-sm text-black/52">With Dean</div></div>
               </div>
             </section>
           </aside>
@@ -1110,16 +1133,17 @@ function Membership() {
   );
 }
 
-export default function MotorcarApp({ signInPath }: { signInPath: string }) {
+export default function MotorcarApp({ signInPath, userEmail }: { signInPath: string; userEmail: string }) {
   const [view, setView] = useState<View>("registry");
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
+  const canAccessDesk = userEmail.trim().toLowerCase() === "deankirkland@me.com";
   return (
     <div className="min-h-screen bg-[#101211]">
-      <Header view={view} setView={setView} />
+      <Header view={view} setView={setView} canAccessDesk={canAccessDesk} />
       {view === "registry" && <Registry setView={setView} />}
       {view === "wanted" && <WantedList />}
-      {view === "desk" && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
-      {view === "intake" && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} />}
+      {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
+      {view === "intake" && canAccessDesk && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} />}
       {view === "membership" && <Membership />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">
