@@ -45,4 +45,5 @@ The first prototype demonstrates the collector Registry, private dossier request
 - Missing photos and records remain visible as an assigned checklist.
 - Release defaults to Private Match; member or public visibility requires explicit selection and team approval.
 - The handoff separates Dean's presentation work from Barnaby's remaining seller follow-up.
-- The prototype simulates uploads and handoff locally. Production storage and notifications are deliberately deferred.
+- Selected images display as local thumbnails with filenames, file sizes, counts, and removal controls.
+- Preview files remain on the device and clear after refresh. Production storage and notifications are deliberately deferred.

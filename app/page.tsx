@@ -480,12 +480,26 @@ const fileChecklist = [
   { id: "video", label: "Walkaround video", icon: Upload },
 ];
 
+type IntakeUpload = {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  previewUrl: string | null;
+};
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function CarIntake({ setView }: { setView: (view: View) => void }) {
   const [step, setStep] = useState(1);
   const [recordCreated, setRecordCreated] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [visibility, setVisibility] = useState("private");
   const [received, setReceived] = useState<string[]>([]);
+  const [uploads, setUploads] = useState<IntakeUpload[]>([]);
   const [car, setCar] = useState({
     year: "",
     make: "",
@@ -510,6 +524,40 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
 
   const toggleReceived = (id: string) => {
     setReceived((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  };
+
+  const handleUploads = (files: FileList | null) => {
+    if (!files?.length) return;
+    const stamp = Date.now();
+    const selected = Array.from(files).map((file, index) => ({
+      id: `${file.name}-${file.lastModified}-${stamp}-${index}`,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+    }));
+    setUploads((current) => [...current, ...selected]);
+    if (selected.some((file) => file.type.startsWith("image/"))) {
+      setReceived((current) => current.includes("photos") ? current : [...current, "photos"]);
+    }
+    if (selected.some((file) => file.type.startsWith("video/"))) {
+      setReceived((current) => current.includes("video") ? current : [...current, "video"]);
+    }
+  };
+
+  const removeUpload = (id: string) => {
+    setUploads((current) => {
+      const target = current.find((file) => file.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      const remaining = current.filter((file) => file.id !== id);
+      if (!remaining.some((file) => file.type.startsWith("image/"))) {
+        setReceived((items) => items.filter((item) => item !== "photos"));
+      }
+      if (!remaining.some((file) => file.type.startsWith("video/"))) {
+        setReceived((items) => items.filter((item) => item !== "video"));
+      }
+      return remaining;
+    });
   };
 
   const goTo = (next: number) => {
@@ -542,7 +590,7 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
             <h1 className="mt-3 font-display text-5xl leading-none sm:text-6xl">Add a Car</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-black/58">Get the deal into the system now. Photos and paperwork can follow.</p>
           </div>
-          <div className="rounded-lg border border-black/10 bg-white/55 px-4 py-3 text-sm font-semibold text-black/48">Prototype · Files are not stored yet</div>
+          <div className="rounded-lg border border-black/10 bg-white/55 px-4 py-3 text-sm font-semibold text-black/48">Preview mode · Files remain on this device</div>
         </div>
 
         <nav className="mt-9 grid gap-2 rounded-2xl border border-black/10 bg-white/55 p-2 sm:grid-cols-4" aria-label="Car intake progress">
@@ -622,10 +670,40 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
                 <p className="mt-3 text-lg leading-8 text-black/54">Choose files from the phone or mark each item as received. Anything missing stays assigned.</p>
                 <label className="mt-8 flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-black/16 bg-[#f7f5f0] px-5 text-center transition hover:border-[#806c49] hover:bg-[#806c49]/5">
                   <Upload className="size-8 text-[#806c49]" />
-                  <span className="mt-3 text-lg font-semibold">Choose photos or documents</span>
+                  <span className="mt-3 text-lg font-semibold">Select photos or documents</span>
                   <span className="mt-1 text-sm text-black/45">Phone camera, photo library, PDF or video</span>
-                  <input type="file" multiple className="sr-only" onChange={() => setReceived((current) => current.includes("photos") ? current : [...current, "photos"])} />
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,application/pdf,video/*"
+                    className="sr-only"
+                    onChange={(event) => {
+                      handleUploads(event.target.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
                 </label>
+                {uploads.length > 0 && (
+                  <section className="mt-7" aria-live="polite">
+                    <div className="flex items-end justify-between gap-4">
+                      <div><h3 className="text-lg font-semibold">Selected files</h3><p className="mt-1 text-sm text-black/45">Visible for this preview session</p></div>
+                      <span className="rounded-full bg-[#60765c]/12 px-3 py-1.5 text-sm font-semibold text-[#52654e]">{uploads.length} ready</span>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {uploads.map((file) => (
+                        <article key={file.id} className="relative overflow-hidden rounded-xl border border-black/10 bg-[#f7f5f0]">
+                          {file.previewUrl ? (
+                            <img src={file.previewUrl} alt="" className="h-32 w-full object-cover" />
+                          ) : (
+                            <div className="grid h-32 place-items-center bg-black/[0.035]"><FileText className="size-9 text-[#806c49]" /></div>
+                          )}
+                          <button onClick={() => removeUpload(file.id)} aria-label={`Remove ${file.name}`} className="absolute right-2 top-2 grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black"><X className="size-5" /></button>
+                          <div className="p-3"><p className="truncate text-sm font-semibold" title={file.name}>{file.name}</p><p className="mt-1 text-xs text-black/44">{formatFileSize(file.size)}</p></div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 <div className="mt-7 space-y-3">
                   {fileChecklist.map((item) => {
                     const done = received.includes(item.id);
@@ -656,7 +734,7 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
                   <dl className="mt-5 grid gap-5 sm:grid-cols-3">
                     <div><dt className="text-sm font-semibold text-black/42">Seller</dt><dd className="mt-1 font-semibold">{car.owner || "Needs confirmation"}</dd></div>
                     <div><dt className="text-sm font-semibold text-black/42">Expected price</dt><dd className="mt-1 font-semibold">{car.price || "Needs confirmation"}</dd></div>
-                    <div><dt className="text-sm font-semibold text-black/42">Files received</dt><dd className="mt-1 font-semibold">{received.length} of {fileChecklist.length}</dd></div>
+                    <div><dt className="text-sm font-semibold text-black/42">Files selected</dt><dd className="mt-1 font-semibold">{uploads.length} file{uploads.length === 1 ? "" : "s"}</dd></div>
                   </dl>
                 </div>
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
