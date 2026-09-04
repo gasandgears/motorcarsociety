@@ -28,6 +28,11 @@ export async function PATCH(request: Request, context: RouteContext) {
     const body = await request.json() as Record<string, unknown>;
     const visibility = ["private", "members", "public"].includes(String(body.visibility)) ? String(body.visibility) : "private";
     const status = ["intake", "review", "ready", "released"].includes(String(body.status)) ? String(body.status) : "intake";
+    const received = Array.isArray(body.received)
+      ? body.received
+          .map((item) => cleanText(item, 24))
+          .filter((item) => ["photos", "title", "numbers", "history", "video"].includes(item))
+      : [];
     const updates = {
       year: cleanText(body.year, 12),
       make: cleanText(body.make, 80),
@@ -39,6 +44,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       location: cleanText(body.location, 180),
       vin: cleanText(body.vin, 120),
       notes: cleanText(body.notes, 8000),
+      receivedCategories: Array.from(new Set(received)).join(","),
       visibility,
       status,
       updatedAt: Date.now(),

@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       location: "",
       vin: "",
       notes: "",
+      receivedCategories: "",
       visibility: "private",
       status: "intake",
       createdAt: now,

@@ -522,12 +522,23 @@ const intakeSteps = [
 ];
 
 const fileChecklist = [
-  { id: "photos", label: "Exterior and interior photos", icon: Camera },
-  { id: "title", label: "Title or registration copy", icon: FileText },
-  { id: "numbers", label: "VIN, engine and chassis numbers", icon: CarFront },
-  { id: "history", label: "Service and ownership records", icon: FolderOpen },
-  { id: "video", label: "Walkaround video", icon: Upload },
-];
+  { id: "photos", label: "Exterior and interior photos", help: "JPG, PNG or HEIC", accept: "image/*", icon: Camera },
+  { id: "title", label: "Title or registration", help: "Scan, photograph or choose a PDF", accept: "image/*,application/pdf", icon: FileText },
+  { id: "numbers", label: "VIN, engine and chassis numbers", help: "Detail photos or PDF", accept: "image/*,application/pdf", icon: CarFront },
+  { id: "history", label: "Service and ownership records", help: "Receipts, history and supporting files", accept: "image/*,application/pdf", icon: FolderOpen },
+  { id: "video", label: "Walkaround video", help: "Video from the phone or files", accept: "video/*", icon: Upload },
+] as const;
+
+type FileCategory = (typeof fileChecklist)[number]["id"] | "records";
+
+const fileCategoryLabels: Record<FileCategory, string> = {
+  photos: "Photos",
+  title: "Title / registration",
+  numbers: "Numbers",
+  history: "Service / ownership",
+  video: "Walkaround video",
+  records: "Other document",
+};
 
 type IntakeUpload = {
   id: string;
@@ -536,6 +547,7 @@ type IntakeUpload = {
   size: number;
   type: string;
   previewUrl: string | null;
+  category: FileCategory;
   status: "uploading" | "saved" | "error";
   sourceFile: File | null;
 };
@@ -557,6 +569,7 @@ type SavedCarDetail = {
   location: string;
   vin: string;
   notes: string;
+  receivedCategories: string;
   visibility: string;
   status: string;
 };
@@ -580,6 +593,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
   const [saving, setSaving] = useState(false);
   const [loadingCar, setLoadingCar] = useState(Boolean(existingCarId));
   const [saveError, setSaveError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
   const [car, setCar] = useState({
     year: "",
     make: "",
@@ -623,10 +637,17 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
           size: file.sizeBytes,
           type: file.contentType,
           previewUrl: file.contentType.startsWith("image/") ? `/api/files/${file.id}` : null,
+          category: (file.category || "records") as FileCategory,
           status: "saved",
           sourceFile: null,
         })));
-        setReceived(Array.from(new Set(files.map((file) => file.category).filter((category) => category !== "records"))));
+        const recordedCategories = saved.receivedCategories
+          .split(",")
+          .filter((category): category is Exclude<FileCategory, "records"> => fileChecklist.some((item) => item.id === category));
+        const uploadedCategories = files
+          .map((file) => file.category)
+          .filter((category): category is Exclude<FileCategory, "records"> => fileChecklist.some((item) => item.id === category));
+        setReceived(Array.from(new Set([...recordedCategories, ...uploadedCategories])));
         setRecordCreated(true);
         setStep(2);
       })
@@ -644,22 +665,20 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
   const completedCount = Math.min(3, Math.ceil(coreComplete / 2)) + received.length;
   const completion = Math.round((completedCount / 8) * 100);
 
-  const toggleReceived = (id: string) => {
-    setReceived((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
-  };
-
-  const saveCar = async (status = "intake") => {
+  const saveCar = async (status = "intake", receivedOverride = received, visibilityOverride = visibility) => {
     if (!savedCarId) return false;
     setSaving(true);
     setSaveError("");
+    setSaveNotice("");
     try {
       const response = await fetch(`/api/cars/${savedCarId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...car, visibility, status }),
+        body: JSON.stringify({ ...car, visibility: visibilityOverride, received: receivedOverride, status }),
       });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "The car file could not be saved.");
+      setSaveNotice("All changes saved");
       return true;
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "The car file could not be saved.");
@@ -667,6 +686,25 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggleReceived = (id: Exclude<FileCategory, "records">) => {
+    const next = received.includes(id) ? received.filter((item) => item !== id) : [...received, id];
+    setReceived(next);
+    void saveCar("intake", next);
+  };
+
+  const chooseVisibility = (next: string) => {
+    setVisibility(next);
+    void saveCar("intake", received, next);
+  };
+
+  const saveAndGo = async (next: number) => {
+    if (uploads.some((file) => file.status === "uploading")) {
+      setSaveError("Please let the current upload finish before leaving this page.");
+      return;
+    }
+    if (await saveCar()) goTo(next);
   };
 
   const createCar = async () => {
@@ -694,7 +732,6 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
 
   const uploadFile = async (item: IntakeUpload, carId: string) => {
     if (!item.sourceFile) return;
-    const category = item.type.startsWith("image/") ? "photos" : item.type.startsWith("video/") ? "video" : "records";
     try {
       const response = await fetch(`/api/cars/${carId}/files`, {
         method: "POST",
@@ -702,13 +739,20 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
           "Content-Type": item.type || "application/octet-stream",
           "X-File-Name": encodeURIComponent(item.name),
           "X-File-Size": String(item.size),
-          "X-File-Category": category,
+          "X-File-Category": item.category,
         },
         body: item.sourceFile,
       });
       const data = await response.json() as { file?: { id: string; category: string }; error?: string };
       if (!response.ok || !data.file) throw new Error(data.error || `${item.name} could not be uploaded.`);
-      setUploads((current) => current.map((file) => file.id === item.id ? { ...file, serverId: data.file!.id, status: "saved", sourceFile: null } : file));
+      if (item.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(item.previewUrl);
+      setUploads((current) => current.map((file) => file.id === item.id ? {
+        ...file,
+        serverId: data.file!.id,
+        previewUrl: file.type.startsWith("image/") ? `/api/files/${data.file!.id}` : null,
+        status: "saved",
+        sourceFile: null,
+      } : file));
       if (data.file.category !== "records") {
         setReceived((current) => current.includes(data.file!.category) ? current : [...current, data.file!.category]);
       }
@@ -718,17 +762,17 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
     }
   };
 
-  const handleUploads = async (files: FileList | null) => {
+  const handleUploads = async (files: FileList | null, category: FileCategory) => {
     if (!files?.length || !savedCarId) return;
     setSaveError("");
-    const stamp = Date.now();
     const selected: IntakeUpload[] = Array.from(files).map((file, index) => ({
-      id: `${file.name}-${file.lastModified}-${stamp}-${index}`,
+      id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}-${index}`,
       serverId: null,
       name: file.name,
       size: file.size,
       type: file.type,
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      category,
       status: "uploading",
       sourceFile: file,
     }));
@@ -807,8 +851,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
             return (
               <button
                 key={item.number}
-                onClick={() => goTo(item.number)}
-                disabled={!recordCreated && item.number > 1}
+                onClick={() => { if (item.number !== step) void saveAndGo(item.number); }}
+                disabled={(!recordCreated && item.number > 1) || uploads.some((file) => file.status === "uploading")}
                 className={`flex min-h-14 items-center gap-3 rounded-xl px-4 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-38 ${active ? "bg-[#1a1c1b] text-white" : "text-black/55 hover:bg-white hover:text-black"}`}
               >
                 <span className={`grid size-8 shrink-0 place-items-center rounded-full border text-sm ${active ? "border-[var(--gold)] bg-[var(--gold)] text-[#111]" : done ? "border-[#60765c] bg-[#60765c] text-white" : "border-black/17"}`}>{done ? <Check className="size-4" /> : item.number}</span>
@@ -819,6 +863,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
         </nav>
 
         {saveError && <div className="mt-5 flex items-start justify-between gap-4 rounded-xl border border-[#8f3329]/20 bg-[#8f3329]/7 p-4 text-[#7a2d25]" role="alert"><div><p>{saveError}</p>{/sign in/i.test(saveError) && <a href={signInPath} target="_top" className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-[#1a1c1b] px-5 font-semibold text-white hover:bg-[#343735]">Sign in again</a>}</div><button onClick={() => setSaveError("")} className="grid size-9 shrink-0 place-items-center rounded-full hover:bg-[#8f3329]/10" aria-label="Dismiss error"><X className="size-5" /></button></div>}
+        {saveNotice && !saveError && <div className="mt-5 flex items-center gap-2 rounded-xl border border-[#60765c]/24 bg-[#60765c]/8 px-4 py-3 text-sm font-semibold text-[#52654e]" role="status"><Check className="size-4" />{saveNotice}</div>}
 
         <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_22rem]">
           <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_14px_42px_rgba(21,23,22,0.06)] sm:p-8">
@@ -837,7 +882,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
                 </div>
                 <div className="mt-9 flex flex-col gap-3 border-t border-black/8 pt-7 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-black/45">Partial information is okay. The checklist will flag what remains.</p>
-                  <Button disabled={saving} onClick={createCar} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Creating file…" : "Create car file"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button>
+                  <Button disabled={saving} onClick={recordCreated ? () => void saveAndGo(2) : createCar} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : recordCreated ? "Save and continue" : "Create car file"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button>
                 </div>
               </div>
             )}
@@ -855,7 +900,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
                       ["members", "Verified Members", "Visible after team approval"],
                       ["public", "Public Registry", "Requires seller approval"],
                     ].map(([id, title, copy]) => (
-                      <button key={id} type="button" onClick={() => setVisibility(id)} className={`min-h-28 rounded-xl border p-4 text-left transition ${visibility === id ? "border-[#806c49] bg-[#806c49]/8 shadow-[inset_0_0_0_1px_#806c49]" : "border-black/10 bg-[#f7f5f0] hover:border-black/25"}`}>
+                      <button key={id} type="button" onClick={() => chooseVisibility(id)} className={`min-h-28 rounded-xl border p-4 text-left transition ${visibility === id ? "border-[#806c49] bg-[#806c49]/8 shadow-[inset_0_0_0_1px_#806c49]" : "border-black/10 bg-[#f7f5f0] hover:border-black/25"}`}>
                         <span className="flex items-center justify-between gap-3 font-semibold">{title}{visibility === id && <Check className="size-5 text-[#806c49]" />}</span>
                         <span className="mt-2 block text-sm leading-6 text-black/49">{copy}</span>
                       </button>
@@ -868,7 +913,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
                   <div className="sm:col-span-2"><label className="admin-label" htmlFor="car-vin">VIN or chassis number</label><input id="car-vin" value={car.vin} onChange={(event) => setField("vin", event.target.value)} className="admin-field mt-2" placeholder="Enter now or leave for the checklist" /></div>
                   <div className="sm:col-span-2"><label className="admin-label" htmlFor="call-notes">Notes from the call</label><textarea id="call-notes" value={car.notes} onChange={(event) => setField("notes", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" placeholder="Ownership, condition, timing, known history and anything promised to the seller" /></div>
                 </div>
-                <div className="mt-9 flex justify-end"><Button disabled={saving} onClick={async () => { if (await saveCar()) goTo(3); }} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">{saving ? "Saving…" : "Save and continue"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button></div>
+                <div className="mt-9 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"><Button variant="outline" disabled={saving} onClick={() => void saveAndGo(1)} className="h-14 border-black/16 bg-white px-6 text-base text-[#1a1c1b] hover:bg-[#f1eee7]"><ArrowLeft className="mr-2 size-5" />Back</Button><Button disabled={saving} onClick={() => void saveAndGo(3)} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">{saving ? "Saving…" : "Save and continue"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button></div>
               </div>
             )}
 
@@ -876,22 +921,71 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#806c49]">{carName}</p>
                 <h2 className="mt-3 font-display text-3xl sm:text-4xl">Collect the car file.</h2>
-                <p className="mt-3 text-lg leading-8 text-black/54">Choose files from the phone or mark each item as received. Anything missing stays assigned.</p>
-                <label className="mt-8 flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-black/16 bg-[#f7f5f0] px-5 text-center transition hover:border-[#806c49] hover:bg-[#806c49]/5">
-                  <Upload className="size-8 text-[#806c49]" />
-                  <span className="mt-3 text-lg font-semibold">Select photos or documents</span>
-                  <span className="mt-1 text-sm text-black/45">Phone camera, photo library, PDF or video</span>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,application/pdf,video/*"
-                    className="sr-only"
-                    onChange={(event) => {
-                      handleUploads(event.target.files);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
+                <p className="mt-3 text-lg leading-8 text-black/54">Upload each item in its proper section. A phone photo works for paperwork, or you can choose a PDF. Every upload saves immediately.</p>
+                <div className="mt-8 space-y-3">
+                  {fileChecklist.map((item) => {
+                    const done = received.includes(item.id);
+                    const Icon = item.icon;
+                    const savedCount = uploads.filter((file) => file.category === item.id && file.status === "saved").length;
+                    return (
+                      <article key={item.id} className={`rounded-xl border p-4 transition ${done ? "border-[#60765c]/32 bg-[#60765c]/8" : "border-black/10 bg-[#f7f5f0]"}`}>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                          <span className={`grid size-11 shrink-0 place-items-center rounded-lg ${done ? "bg-[#60765c] text-white" : "bg-black/5 text-black/52"}`}>{done ? <Check className="size-5" /> : <Icon className="size-5" />}</span>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold">{item.label}</h3>
+                            <p className="mt-1 text-sm text-black/45">{savedCount ? `${savedCount} file${savedCount === 1 ? "" : "s"} saved` : item.help}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {(item.id === "title" || item.id === "numbers" || item.id === "history") && (
+                              <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-black/14 bg-white px-4 text-sm font-semibold hover:border-[#806c49]">
+                                <Camera className="mr-2 size-4" />Scan / photograph
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  capture="environment"
+                                  className="sr-only"
+                                  onChange={(event) => {
+                                    void handleUploads(event.target.files, item.id);
+                                    event.currentTarget.value = "";
+                                  }}
+                                />
+                              </label>
+                            )}
+                            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg bg-[#1a1c1b] px-4 text-sm font-semibold text-white hover:bg-[#343735]">
+                              <Upload className="mr-2 size-4" />{item.id === "photos" ? "Add photos" : item.id === "video" ? "Add video" : "Choose file"}
+                              <input
+                                type="file"
+                                multiple
+                                accept={item.accept}
+                                className="sr-only"
+                                onChange={(event) => {
+                                  void handleUploads(event.target.files, item.id);
+                                  event.currentTarget.value = "";
+                                }}
+                              />
+                            </label>
+                            <button type="button" onClick={() => toggleReceived(item.id)} className="min-h-11 rounded-lg border border-black/14 bg-white px-4 text-sm font-semibold hover:border-[#806c49]">
+                              {done ? "Mark missing" : "Mark received"}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                  <label className="flex min-h-14 cursor-pointer items-center justify-center rounded-xl border border-dashed border-black/18 bg-white px-4 text-sm font-semibold hover:border-[#806c49] hover:bg-[#806c49]/5">
+                    <FileText className="mr-2 size-5 text-[#806c49]" />Upload another supporting document
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf"
+                      className="sr-only"
+                      onChange={(event) => {
+                        void handleUploads(event.target.files, "records");
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
                 {uploads.length > 0 && (
                   <section className="mt-7" aria-live="polite">
                     <div className="flex items-end justify-between gap-4">
@@ -909,6 +1003,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
                           <button disabled={file.status === "uploading"} onClick={() => removeUpload(file.id)} aria-label={`Remove ${file.name}`} className="absolute right-2 top-2 grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black disabled:cursor-wait disabled:opacity-40"><X className="size-5" /></button>
                           <div className="p-3">
                             <p className="truncate text-sm font-semibold" title={file.name}>{file.name}</p>
+                            <p className="mt-1 truncate text-xs font-semibold text-[#806c49]">{fileCategoryLabels[file.category]}</p>
                             <div className="mt-1 flex items-center justify-between gap-2"><p className="text-xs text-black/44">{formatFileSize(file.size)}</p><span className={`text-xs font-bold ${file.status === "saved" ? "text-[#52654e]" : file.status === "error" ? "text-[#8f3329]" : "text-[#806c49]"}`}>{file.status === "saved" ? "Saved" : file.status === "error" ? "Failed" : "Uploading…"}</span></div>
                             {file.status === "error" && file.sourceFile && savedCarId && <button onClick={() => uploadFile(file, savedCarId)} className="mt-3 min-h-10 w-full rounded-lg border border-[#8f3329]/20 text-sm font-semibold text-[#7a2d25] hover:bg-[#8f3329]/7">Try again</button>}
                           </div>
@@ -917,20 +1012,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
                     </div>
                   </section>
                 )}
-                <div className="mt-7 space-y-3">
-                  {fileChecklist.map((item) => {
-                    const done = received.includes(item.id);
-                    const Icon = item.icon;
-                    return (
-                      <button key={item.id} onClick={() => toggleReceived(item.id)} className={`flex min-h-16 w-full items-center gap-4 rounded-xl border px-4 text-left transition ${done ? "border-[#60765c]/32 bg-[#60765c]/8" : "border-black/10 bg-white hover:border-[#806c49]/55"}`}>
-                        <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${done ? "bg-[#60765c] text-white" : "bg-black/5 text-black/52"}`}>{done ? <Check className="size-5" /> : <Icon className="size-5" />}</span>
-                        <span className="flex-1 font-semibold">{item.label}</span>
-                        <span className={`text-sm font-semibold ${done ? "text-[#52654e]" : "text-[#8f3329]"}`}>{done ? "Received" : "Missing"}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-9 flex justify-end"><Button onClick={() => goTo(4)} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">Review handoff <ArrowRight className="ml-2 size-5" /></Button></div>
+                <div className="mt-9 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"><Button variant="outline" disabled={saving || uploads.some((file) => file.status === "uploading")} onClick={() => void saveAndGo(2)} className="h-14 border-black/16 bg-white px-6 text-base text-[#1a1c1b] hover:bg-[#f1eee7]"><ArrowLeft className="mr-2 size-5" />Back</Button><Button disabled={saving || uploads.some((file) => file.status === "uploading")} onClick={() => void saveAndGo(4)} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">{uploads.some((file) => file.status === "uploading") ? "Finishing uploads…" : saving ? "Saving…" : "Save and review"} {!saving && !uploads.some((file) => file.status === "uploading") && <ArrowRight className="ml-2 size-5" />}</Button></div>
               </div>
             )}
 
@@ -955,8 +1037,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
                   <div className="rounded-xl border border-black/10 p-5"><p className="text-sm font-bold uppercase tracking-[0.12em] text-black/40">Barnaby’s next action</p><p className="mt-3 text-lg font-semibold">Collect {fileChecklist.length - received.length} missing file{fileChecklist.length - received.length === 1 ? "" : "s"}</p></div>
                 </div>
                 <div className="mt-9 flex flex-col gap-3 border-t border-black/8 pt-7 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm leading-6 text-black/45">The seller’s approval is still required before any public release.</p>
-                  <Button disabled={saving || uploads.some((file) => file.status === "uploading")} onClick={async () => { if (await saveCar("review")) setSubmitted(true); }} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : "Send to Dean"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button>
+                  <Button variant="outline" disabled={saving} onClick={() => void saveAndGo(3)} className="h-14 border-black/16 bg-white px-6 text-base text-[#1a1c1b] hover:bg-[#f1eee7]"><ArrowLeft className="mr-2 size-5" />Back to files</Button>
+                  <div className="sm:text-right"><p className="mb-3 text-sm leading-6 text-black/45">The seller’s approval is still required before any public release.</p><Button disabled={saving || uploads.some((file) => file.status === "uploading")} onClick={async () => { if (await saveCar("review")) setSubmitted(true); }} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : "Send to Dean"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button></div>
                 </div>
               </div>
             )}

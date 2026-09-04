@@ -16,6 +16,7 @@ export const cars = sqliteTable(
     location: text("location").notNull(),
     vin: text("vin").notNull(),
     notes: text("notes").notNull(),
+    receivedCategories: text("received_categories").notNull().default(""),
     visibility: text("visibility").notNull(),
     status: text("status").notNull(),
     createdAt: integer("created_at").notNull(),

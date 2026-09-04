@@ -1,0 +1,1 @@
+ALTER TABLE `cars` ADD `received_categories` text DEFAULT '' NOT NULL;
