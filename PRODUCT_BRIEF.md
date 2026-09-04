@@ -37,3 +37,12 @@ Build a private collector-car sales network and the operating system behind it. 
 ## Current prototype boundary
 
 The first prototype demonstrates the collector Registry, private dossier request, Wanted List, membership application, and Barnaby's daily action desk. Production authentication, confidential document storage, CRM integrations, and transaction handling follow after the workflow is approved.
+
+## Version 2: Add a Car
+
+- Barnaby creates a car file after entering only the year, make, model, seller, phone, and expected price.
+- The file exists before every photo or document is available.
+- Missing photos and records remain visible as an assigned checklist.
+- Release defaults to Private Match; member or public visibility requires explicit selection and team approval.
+- The handoff separates Dean's presentation work from Barnaby's remaining seller follow-up.
+- The prototype simulates uploads and handoff locally. Production storage and notifications are deliberately deferred.

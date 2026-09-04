@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   BellRing,
+  Camera,
+  CarFront,
   Check,
   ChevronRight,
+  ClipboardCheck,
   Clock3,
   FileCheck2,
+  FileText,
   FolderOpen,
   Gauge,
   ListChecks,
@@ -15,6 +20,7 @@ import {
   Menu,
   Phone,
   ShieldCheck,
+  Upload,
   UserRoundCheck,
   X,
 } from "lucide-react";
@@ -31,7 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 
-type View = "registry" | "wanted" | "desk" | "membership";
+type View = "registry" | "wanted" | "desk" | "intake" | "membership";
 
 const inventory = [
   { year: "1967", name: "Ferrari 275 GTB/4", detail: "Long-term West Coast ownership", status: "Private Match", code: "F" },
@@ -371,7 +377,7 @@ function WantedList() {
   );
 }
 
-function BarnabyDesk() {
+function BarnabyDesk({ setView }: { setView: (view: View) => void }) {
   const [completed, setCompleted] = useState<string[]>([]);
 
   return (
@@ -384,7 +390,7 @@ function BarnabyDesk() {
             <p className="mt-5 text-xl text-black/61">Three cars need your attention. Start with the phone call.</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" className="h-12 border-black/15 bg-white/50 px-5 text-base hover:bg-white"><FolderOpen className="mr-2 size-5" /> Add a Car</Button>
+            <Button onClick={() => setView("intake")} variant="outline" className="h-12 border-black/15 bg-white/50 px-5 text-base hover:bg-white"><FolderOpen className="mr-2 size-5" /> Add a Car</Button>
             <Button className="h-12 bg-[#1a1c1b] px-5 text-base text-white hover:bg-[#343735]"><Gauge className="mr-2 size-5" /> Pipeline</Button>
           </div>
         </div>
@@ -459,6 +465,239 @@ function BarnabyDesk() {
   );
 }
 
+const intakeSteps = [
+  { number: 1, label: "Start the file" },
+  { number: 2, label: "Deal details" },
+  { number: 3, label: "Photos & records" },
+  { number: 4, label: "Handoff" },
+];
+
+const fileChecklist = [
+  { id: "photos", label: "Exterior and interior photos", icon: Camera },
+  { id: "title", label: "Title or registration copy", icon: FileText },
+  { id: "numbers", label: "VIN, engine and chassis numbers", icon: CarFront },
+  { id: "history", label: "Service and ownership records", icon: FolderOpen },
+  { id: "video", label: "Walkaround video", icon: Upload },
+];
+
+function CarIntake({ setView }: { setView: (view: View) => void }) {
+  const [step, setStep] = useState(1);
+  const [recordCreated, setRecordCreated] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [visibility, setVisibility] = useState("private");
+  const [received, setReceived] = useState<string[]>([]);
+  const [car, setCar] = useState({
+    year: "",
+    make: "",
+    model: "",
+    owner: "",
+    phone: "",
+    price: "",
+    email: "",
+    location: "",
+    vin: "",
+    notes: "",
+  });
+
+  const setField = (field: keyof typeof car, value: string) => {
+    setCar((current) => ({ ...current, [field]: value }));
+  };
+
+  const carName = [car.year, car.make, car.model].filter(Boolean).join(" ") || "New motorcar";
+  const coreComplete = [car.year, car.make, car.model, car.owner, car.phone, car.price].filter(Boolean).length;
+  const completedCount = Math.min(3, Math.ceil(coreComplete / 2)) + received.length;
+  const completion = Math.round((completedCount / 8) * 100);
+
+  const toggleReceived = (id: string) => {
+    setReceived((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  };
+
+  const goTo = (next: number) => {
+    if (!recordCreated && next > 1) return;
+    setStep(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  if (submitted) {
+    return (
+      <main className="grid min-h-[calc(100vh-5.25rem)] place-items-center bg-[#e9e5dc] px-5 py-14 text-[#171918]">
+        <section className="w-full max-w-2xl rounded-2xl border border-black/10 bg-white p-7 text-center shadow-[0_18px_50px_rgba(21,23,22,0.08)] sm:p-12">
+          <div className="mx-auto grid size-16 place-items-center rounded-full bg-[#60765c]/14 text-[#52654e]"><Check className="size-8" /></div>
+          <p className="mt-7 text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Handoff complete</p>
+          <h1 className="mt-3 font-display text-4xl leading-tight sm:text-5xl">Dean has the {carName}.</h1>
+          <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-black/58">The car remains on Barnaby’s Desk until the presentation is approved. Any missing files stay visible and assigned.</p>
+          <Button onClick={() => setView("desk")} className="mt-8 h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">Return to Barnaby’s Desk <ArrowRight className="ml-2 size-5" /></Button>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-[calc(100vh-5.25rem)] bg-[#e9e5dc] px-5 py-9 text-[#171918] sm:px-8 lg:px-12 lg:py-12">
+      <div className="mx-auto max-w-[90rem]">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div>
+            <button onClick={() => setView("desk")} className="flex min-h-11 items-center gap-2 text-base font-semibold text-black/58 hover:text-black"><ArrowLeft className="size-5" /> Barnaby’s Desk</button>
+            <p className="mt-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#806c49]">New inventory file</p>
+            <h1 className="mt-3 font-display text-5xl leading-none sm:text-6xl">Add a Car</h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-black/58">Get the deal into the system now. Photos and paperwork can follow.</p>
+          </div>
+          <div className="rounded-lg border border-black/10 bg-white/55 px-4 py-3 text-sm font-semibold text-black/48">Prototype · Files are not stored yet</div>
+        </div>
+
+        <nav className="mt-9 grid gap-2 rounded-2xl border border-black/10 bg-white/55 p-2 sm:grid-cols-4" aria-label="Car intake progress">
+          {intakeSteps.map((item) => {
+            const active = step === item.number;
+            const done = recordCreated && step > item.number;
+            return (
+              <button
+                key={item.number}
+                onClick={() => goTo(item.number)}
+                disabled={!recordCreated && item.number > 1}
+                className={`flex min-h-14 items-center gap-3 rounded-xl px-4 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-38 ${active ? "bg-[#1a1c1b] text-white" : "text-black/55 hover:bg-white hover:text-black"}`}
+              >
+                <span className={`grid size-8 shrink-0 place-items-center rounded-full border text-sm ${active ? "border-[var(--gold)] bg-[var(--gold)] text-[#111]" : done ? "border-[#60765c] bg-[#60765c] text-white" : "border-black/17"}`}>{done ? <Check className="size-4" /> : item.number}</span>
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_22rem]">
+          <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_14px_42px_rgba(21,23,22,0.06)] sm:p-8">
+            {step === 1 && (
+              <div>
+                <div className="flex size-12 items-center justify-center rounded-xl bg-[#806c49]/12 text-[#806c49]"><CarFront className="size-6" /></div>
+                <h2 className="mt-5 font-display text-3xl sm:text-4xl">Start with what you know.</h2>
+                <p className="mt-3 text-lg leading-8 text-black/54">Six quick details create the car file. Nothing gets lost while the rest arrives.</p>
+                <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div><label className="admin-label" htmlFor="car-year">Year</label><input id="car-year" value={car.year} onChange={(event) => setField("year", event.target.value)} className="admin-field mt-2" inputMode="numeric" placeholder="1967" /></div>
+                  <div><label className="admin-label" htmlFor="car-make">Make</label><input id="car-make" value={car.make} onChange={(event) => setField("make", event.target.value)} className="admin-field mt-2" placeholder="Ferrari" /></div>
+                  <div><label className="admin-label" htmlFor="car-model">Model</label><input id="car-model" value={car.model} onChange={(event) => setField("model", event.target.value)} className="admin-field mt-2" placeholder="330 GTC" /></div>
+                  <div><label className="admin-label" htmlFor="seller-name">Seller’s name</label><input id="seller-name" value={car.owner} onChange={(event) => setField("owner", event.target.value)} className="admin-field mt-2" placeholder="William R." /></div>
+                  <div><label className="admin-label" htmlFor="seller-phone">Best phone</label><input id="seller-phone" type="tel" value={car.phone} onChange={(event) => setField("phone", event.target.value)} className="admin-field mt-2" placeholder="(949) 555-0120" /></div>
+                  <div><label className="admin-label" htmlFor="asking-price">Expected price</label><input id="asking-price" value={car.price} onChange={(event) => setField("price", event.target.value)} className="admin-field mt-2" placeholder="$825,000" /></div>
+                </div>
+                <div className="mt-9 flex flex-col gap-3 border-t border-black/8 pt-7 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-black/45">Partial information is okay. The checklist will flag what remains.</p>
+                  <Button onClick={() => { setRecordCreated(true); goTo(2); }} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">Create car file <ArrowRight className="ml-2 size-5" /></Button>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#806c49]">File created · {carName}</p>
+                <h2 className="mt-3 font-display text-3xl sm:text-4xl">Set the deal terms.</h2>
+                <p className="mt-3 text-lg leading-8 text-black/54">Choose who may see the car, then add the details from the call.</p>
+                <fieldset className="mt-8">
+                  <legend className="admin-label">Initial release</legend>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                    {[
+                      ["private", "Private Match", "One-to-one introductions only"],
+                      ["members", "Verified Members", "Visible after team approval"],
+                      ["public", "Public Registry", "Requires seller approval"],
+                    ].map(([id, title, copy]) => (
+                      <button key={id} type="button" onClick={() => setVisibility(id)} className={`min-h-28 rounded-xl border p-4 text-left transition ${visibility === id ? "border-[#806c49] bg-[#806c49]/8 shadow-[inset_0_0_0_1px_#806c49]" : "border-black/10 bg-[#f7f5f0] hover:border-black/25"}`}>
+                        <span className="flex items-center justify-between gap-3 font-semibold">{title}{visibility === id && <Check className="size-5 text-[#806c49]" />}</span>
+                        <span className="mt-2 block text-sm leading-6 text-black/49">{copy}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                  <div><label className="admin-label" htmlFor="seller-email">Seller email</label><input id="seller-email" type="email" value={car.email} onChange={(event) => setField("email", event.target.value)} className="admin-field mt-2" placeholder="owner@example.com" /></div>
+                  <div><label className="admin-label" htmlFor="car-location">Car location</label><input id="car-location" value={car.location} onChange={(event) => setField("location", event.target.value)} className="admin-field mt-2" placeholder="Newport Beach, California" /></div>
+                  <div className="sm:col-span-2"><label className="admin-label" htmlFor="car-vin">VIN or chassis number</label><input id="car-vin" value={car.vin} onChange={(event) => setField("vin", event.target.value)} className="admin-field mt-2" placeholder="Enter now or leave for the checklist" /></div>
+                  <div className="sm:col-span-2"><label className="admin-label" htmlFor="call-notes">Notes from the call</label><textarea id="call-notes" value={car.notes} onChange={(event) => setField("notes", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" placeholder="Ownership, condition, timing, known history and anything promised to the seller" /></div>
+                </div>
+                <div className="mt-9 flex justify-end"><Button onClick={() => goTo(3)} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">Continue to files <ArrowRight className="ml-2 size-5" /></Button></div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div>
+                <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#806c49]">{carName}</p>
+                <h2 className="mt-3 font-display text-3xl sm:text-4xl">Collect the car file.</h2>
+                <p className="mt-3 text-lg leading-8 text-black/54">Choose files from the phone or mark each item as received. Anything missing stays assigned.</p>
+                <label className="mt-8 flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-black/16 bg-[#f7f5f0] px-5 text-center transition hover:border-[#806c49] hover:bg-[#806c49]/5">
+                  <Upload className="size-8 text-[#806c49]" />
+                  <span className="mt-3 text-lg font-semibold">Choose photos or documents</span>
+                  <span className="mt-1 text-sm text-black/45">Phone camera, photo library, PDF or video</span>
+                  <input type="file" multiple className="sr-only" onChange={() => setReceived((current) => current.includes("photos") ? current : [...current, "photos"])} />
+                </label>
+                <div className="mt-7 space-y-3">
+                  {fileChecklist.map((item) => {
+                    const done = received.includes(item.id);
+                    const Icon = item.icon;
+                    return (
+                      <button key={item.id} onClick={() => toggleReceived(item.id)} className={`flex min-h-16 w-full items-center gap-4 rounded-xl border px-4 text-left transition ${done ? "border-[#60765c]/32 bg-[#60765c]/8" : "border-black/10 bg-white hover:border-[#806c49]/55"}`}>
+                        <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${done ? "bg-[#60765c] text-white" : "bg-black/5 text-black/52"}`}>{done ? <Check className="size-5" /> : <Icon className="size-5" />}</span>
+                        <span className="flex-1 font-semibold">{item.label}</span>
+                        <span className={`text-sm font-semibold ${done ? "text-[#52654e]" : "text-[#8f3329]"}`}>{done ? "Received" : "Missing"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-9 flex justify-end"><Button onClick={() => goTo(4)} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">Review handoff <ArrowRight className="ml-2 size-5" /></Button></div>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div>
+                <div className="flex size-12 items-center justify-center rounded-xl bg-[#60765c]/12 text-[#52654e]"><ClipboardCheck className="size-6" /></div>
+                <h2 className="mt-5 font-display text-3xl sm:text-4xl">Send it forward.</h2>
+                <p className="mt-3 text-lg leading-8 text-black/54">Dean receives the deal summary and presentation work. Barnaby keeps only the missing seller items.</p>
+                <div className="mt-8 rounded-2xl border border-black/10 bg-[#f7f5f0] p-5 sm:p-6">
+                  <div className="flex flex-col justify-between gap-3 border-b border-black/8 pb-5 sm:flex-row sm:items-center">
+                    <div><p className="text-sm font-bold uppercase tracking-[0.13em] text-[#806c49]">Ready for internal review</p><h3 className="mt-2 font-display text-3xl">{carName}</h3></div>
+                    <span className="w-fit rounded-full bg-[#806c49]/10 px-4 py-2 text-sm font-semibold text-[#6f5d3f]">{visibility === "private" ? "Private Match" : visibility === "members" ? "Verified Members" : "Public Registry"}</span>
+                  </div>
+                  <dl className="mt-5 grid gap-5 sm:grid-cols-3">
+                    <div><dt className="text-sm font-semibold text-black/42">Seller</dt><dd className="mt-1 font-semibold">{car.owner || "Needs confirmation"}</dd></div>
+                    <div><dt className="text-sm font-semibold text-black/42">Expected price</dt><dd className="mt-1 font-semibold">{car.price || "Needs confirmation"}</dd></div>
+                    <div><dt className="text-sm font-semibold text-black/42">Files received</dt><dd className="mt-1 font-semibold">{received.length} of {fileChecklist.length}</dd></div>
+                  </dl>
+                </div>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-black/10 p-5"><p className="text-sm font-bold uppercase tracking-[0.12em] text-black/40">Dean’s next action</p><p className="mt-3 text-lg font-semibold">Review story and presentation</p></div>
+                  <div className="rounded-xl border border-black/10 p-5"><p className="text-sm font-bold uppercase tracking-[0.12em] text-black/40">Barnaby’s next action</p><p className="mt-3 text-lg font-semibold">Collect {fileChecklist.length - received.length} missing file{fileChecklist.length - received.length === 1 ? "" : "s"}</p></div>
+                </div>
+                <div className="mt-9 flex flex-col gap-3 border-t border-black/8 pt-7 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-black/45">The seller’s approval is still required before any public release.</p>
+                  <Button onClick={() => setSubmitted(true)} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">Send to Dean <ArrowRight className="ml-2 size-5" /></Button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <aside className="space-y-4">
+            <section className="rounded-2xl bg-[#181a19] p-6 text-white">
+              <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold uppercase tracking-[0.14em] text-white/46">Car file</p><span className="font-display text-3xl text-[var(--gold-light)]">{completion}%</span></div>
+              <Progress value={completion} className="mt-5 h-2.5 bg-white/10 [&_[data-slot=progress-indicator]]:bg-[var(--gold)]" />
+              <h2 className="mt-6 font-display text-2xl leading-tight">{carName}</h2>
+              <div className="mt-5 space-y-3 text-sm">
+                {[
+                  [coreComplete >= 2, "Vehicle identified"],
+                  [coreComplete >= 4, "Seller contact"],
+                  [coreComplete >= 6, "Expected price"],
+                  ...fileChecklist.map((item) => [received.includes(item.id), item.label] as [boolean, string]),
+                ].map(([done, label]) => (
+                  <div key={label as string} className="flex items-start gap-3"><span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${done ? "bg-[#60765c] text-white" : "border border-white/20 text-transparent"}`}>{done && <Check className="size-3" />}</span><span className={done ? "text-white/72" : "text-white/42"}>{label as string}</span></div>
+                ))}
+              </div>
+            </section>
+            <section className="rounded-2xl border border-black/10 bg-white/60 p-6">
+              <p className="text-sm font-bold uppercase tracking-[0.13em] text-black/40">Built-in follow-through</p>
+              <p className="mt-4 leading-7 text-black/58">Missing items become tomorrow’s first action. One snooze is allowed before Dean is alerted.</p>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 function Membership() {
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
@@ -505,7 +744,8 @@ export default function Home() {
       <Header view={view} setView={setView} />
       {view === "registry" && <Registry setView={setView} />}
       {view === "wanted" && <WantedList />}
-      {view === "desk" && <BarnabyDesk />}
+      {view === "desk" && <BarnabyDesk setView={setView} />}
+      {view === "intake" && <CarIntake setView={setView} />}
       {view === "membership" && <Membership />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">
