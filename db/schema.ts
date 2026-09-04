@@ -1,4 +1,48 @@
-// Intentionally empty by default.
-// Add Drizzle tables here when the site actually needs a database.
-// See examples/d1/db/schema.ts for an opt-in example.
-export {};
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+export const cars = sqliteTable(
+  "cars",
+  {
+    id: text("id").primaryKey(),
+    createdBy: text("created_by").notNull(),
+    createdByEmail: text("created_by_email").notNull(),
+    year: text("year").notNull(),
+    make: text("make").notNull(),
+    model: text("model").notNull(),
+    sellerName: text("seller_name").notNull(),
+    sellerPhone: text("seller_phone").notNull(),
+    expectedPrice: text("expected_price").notNull(),
+    sellerEmail: text("seller_email").notNull(),
+    location: text("location").notNull(),
+    vin: text("vin").notNull(),
+    notes: text("notes").notNull(),
+    visibility: text("visibility").notNull(),
+    status: text("status").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_cars_updated_at").on(table.updatedAt),
+    index("idx_cars_status_updated_at").on(table.status, table.updatedAt),
+  ],
+);
+
+export const carFiles = sqliteTable(
+  "car_files",
+  {
+    id: text("id").primaryKey(),
+    carId: text("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull(),
+    filename: text("filename").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    category: text("category").notNull(),
+    uploadedBy: text("uploaded_by").notNull(),
+    uploadedByEmail: text("uploaded_by_email").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_car_files_car_id").on(table.carId),
+    uniqueIndex("idx_car_files_storage_key").on(table.storageKey),
+  ],
+);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -377,8 +377,35 @@ function WantedList() {
   );
 }
 
-function BarnabyDesk({ setView }: { setView: (view: View) => void }) {
+type SavedCarSummary = {
+  id: string;
+  year: string;
+  make: string;
+  model: string;
+  sellerName: string;
+  expectedPrice: string;
+  status: string;
+  updatedAt: number;
+};
+
+function BarnabyDesk({ onAddCar, onOpenCar }: { onAddCar: () => void; onOpenCar: (id: string) => void }) {
   const [completed, setCompleted] = useState<string[]>([]);
+  const [savedCars, setSavedCars] = useState<SavedCarSummary[]>([]);
+  const [carsLoading, setCarsLoading] = useState(true);
+  const [carsError, setCarsError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/cars")
+      .then(async (response) => {
+        const data = await response.json() as { cars?: SavedCarSummary[]; error?: string };
+        if (!response.ok) throw new Error(data.error || "Saved cars could not be loaded.");
+        if (active) setSavedCars(data.cars || []);
+      })
+      .catch((error: Error) => { if (active) setCarsError(error.message); })
+      .finally(() => { if (active) setCarsLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#e9e5dc] px-5 py-10 text-[#171918] sm:px-8 lg:px-12 lg:py-12">
@@ -390,12 +417,34 @@ function BarnabyDesk({ setView }: { setView: (view: View) => void }) {
             <p className="mt-5 text-xl text-black/61">Three cars need your attention. Start with the phone call.</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button onClick={() => setView("intake")} variant="outline" className="h-12 border-black/15 bg-white/50 px-5 text-base hover:bg-white"><FolderOpen className="mr-2 size-5" /> Add a Car</Button>
+            <Button onClick={onAddCar} variant="outline" className="h-12 border-black/15 bg-white/50 px-5 text-base hover:bg-white"><FolderOpen className="mr-2 size-5" /> Add a Car</Button>
             <Button className="h-12 bg-[#1a1c1b] px-5 text-base text-white hover:bg-[#343735]"><Gauge className="mr-2 size-5" /> Pipeline</Button>
           </div>
         </div>
 
-        <div className="mt-9 grid gap-4 xl:grid-cols-[1fr_22rem]">
+        {(carsLoading || carsError || savedCars.length > 0) && (
+          <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-6">
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+              <div><p className="text-sm font-bold uppercase tracking-[0.14em] text-[#806c49]">Saved inventory</p><h2 className="mt-2 font-display text-3xl">Recent car files</h2></div>
+              {!carsLoading && !carsError && <p className="text-sm font-semibold text-black/42">{savedCars.length} saved</p>}
+            </div>
+            {carsLoading && <div className="mt-5 h-20 animate-pulse rounded-xl bg-black/5" />}
+            {carsError && <div className="mt-5 rounded-xl border border-[#8f3329]/20 bg-[#8f3329]/7 p-4 text-[#7a2d25]">{carsError}</div>}
+            {savedCars.length > 0 && (
+              <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                {savedCars.slice(0, 6).map((car) => (
+                  <button key={car.id} onClick={() => onOpenCar(car.id)} className="flex min-h-24 items-center gap-4 rounded-xl border border-black/10 bg-white p-4 text-left transition hover:border-[#806c49]/65 hover:shadow-sm">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-[#806c49]/10 text-[#806c49]"><CarFront className="size-6" /></span>
+                    <span className="min-w-0 flex-1"><span className="block truncate font-display text-xl">{[car.year, car.make, car.model].filter(Boolean).join(" ") || "New motorcar"}</span><span className="mt-1 block truncate text-sm text-black/46">{car.sellerName || "Seller pending"} · {car.expectedPrice || "Price pending"}</span></span>
+                    <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-[#806c49]">Open <ChevronRight className="size-4" /></span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_22rem]">
           <section className="space-y-4">
             {deskItems.map((item) => {
               const done = completed.includes(item.car);
@@ -482,10 +531,13 @@ const fileChecklist = [
 
 type IntakeUpload = {
   id: string;
+  serverId: string | null;
   name: string;
   size: number;
   type: string;
   previewUrl: string | null;
+  status: "uploading" | "saved" | "error";
+  sourceFile: File | null;
 };
 
 function formatFileSize(bytes: number) {
@@ -493,13 +545,41 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function CarIntake({ setView }: { setView: (view: View) => void }) {
+type SavedCarDetail = {
+  id: string;
+  year: string;
+  make: string;
+  model: string;
+  sellerName: string;
+  sellerPhone: string;
+  expectedPrice: string;
+  sellerEmail: string;
+  location: string;
+  vin: string;
+  notes: string;
+  visibility: string;
+  status: string;
+};
+
+type SavedFileDetail = {
+  id: string;
+  filename: string;
+  sizeBytes: number;
+  contentType: string;
+  category: string;
+};
+
+function CarIntake({ setView, existingCarId, onCarCreated }: { setView: (view: View) => void; existingCarId: string | null; onCarCreated: (id: string) => void }) {
   const [step, setStep] = useState(1);
   const [recordCreated, setRecordCreated] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [visibility, setVisibility] = useState("private");
   const [received, setReceived] = useState<string[]>([]);
   const [uploads, setUploads] = useState<IntakeUpload[]>([]);
+  const [savedCarId, setSavedCarId] = useState<string | null>(existingCarId);
+  const [saving, setSaving] = useState(false);
+  const [loadingCar, setLoadingCar] = useState(Boolean(existingCarId));
+  const [saveError, setSaveError] = useState("");
   const [car, setCar] = useState({
     year: "",
     make: "",
@@ -512,6 +592,48 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
     vin: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!existingCarId) return;
+    let active = true;
+    fetch(`/api/cars/${existingCarId}`)
+      .then(async (response) => {
+        const data = await response.json() as { car?: SavedCarDetail; files?: SavedFileDetail[]; error?: string };
+        if (!response.ok || !data.car) throw new Error(data.error || "The car file could not be loaded.");
+        if (!active) return;
+        const saved = data.car;
+        setCar({
+          year: saved.year,
+          make: saved.make,
+          model: saved.model,
+          owner: saved.sellerName,
+          phone: saved.sellerPhone,
+          price: saved.expectedPrice,
+          email: saved.sellerEmail,
+          location: saved.location,
+          vin: saved.vin,
+          notes: saved.notes,
+        });
+        setVisibility(saved.visibility);
+        const files = data.files || [];
+        setUploads(files.map((file) => ({
+          id: `saved-${file.id}`,
+          serverId: file.id,
+          name: file.filename,
+          size: file.sizeBytes,
+          type: file.contentType,
+          previewUrl: file.contentType.startsWith("image/") ? `/api/files/${file.id}` : null,
+          status: "saved",
+          sourceFile: null,
+        })));
+        setReceived(Array.from(new Set(files.map((file) => file.category).filter((category) => category !== "records"))));
+        setRecordCreated(true);
+        setStep(2);
+      })
+      .catch((error: Error) => { if (active) setSaveError(error.message); })
+      .finally(() => { if (active) setLoadingCar(false); });
+    return () => { active = false; };
+  }, [existingCarId]);
 
   const setField = (field: keyof typeof car, value: string) => {
     setCar((current) => ({ ...current, [field]: value }));
@@ -526,29 +648,110 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
     setReceived((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
 
-  const handleUploads = (files: FileList | null) => {
-    if (!files?.length) return;
+  const saveCar = async (status = "intake") => {
+    if (!savedCarId) return false;
+    setSaving(true);
+    setSaveError("");
+    try {
+      const response = await fetch(`/api/cars/${savedCarId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...car, visibility, status }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "The car file could not be saved.");
+      return true;
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "The car file could not be saved.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const createCar = async () => {
+    setSaving(true);
+    setSaveError("");
+    try {
+      const response = await fetch("/api/cars", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(car),
+      });
+      const data = await response.json() as { car?: { id: string }; error?: string };
+      if (!response.ok || !data.car) throw new Error(data.error || "The car file could not be created.");
+      setSavedCarId(data.car.id);
+      onCarCreated(data.car.id);
+      setRecordCreated(true);
+      setStep(2);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "The car file could not be created.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadFile = async (item: IntakeUpload, carId: string) => {
+    if (!item.sourceFile) return;
+    const category = item.type.startsWith("image/") ? "photos" : item.type.startsWith("video/") ? "video" : "records";
+    try {
+      const response = await fetch(`/api/cars/${carId}/files`, {
+        method: "POST",
+        headers: {
+          "Content-Type": item.type || "application/octet-stream",
+          "X-File-Name": encodeURIComponent(item.name),
+          "X-File-Size": String(item.size),
+          "X-File-Category": category,
+        },
+        body: item.sourceFile,
+      });
+      const data = await response.json() as { file?: { id: string; category: string }; error?: string };
+      if (!response.ok || !data.file) throw new Error(data.error || `${item.name} could not be uploaded.`);
+      setUploads((current) => current.map((file) => file.id === item.id ? { ...file, serverId: data.file!.id, status: "saved", sourceFile: null } : file));
+      if (data.file.category !== "records") {
+        setReceived((current) => current.includes(data.file!.category) ? current : [...current, data.file!.category]);
+      }
+    } catch (error) {
+      setUploads((current) => current.map((file) => file.id === item.id ? { ...file, status: "error" } : file));
+      setSaveError(error instanceof Error ? error.message : `${item.name} could not be uploaded.`);
+    }
+  };
+
+  const handleUploads = async (files: FileList | null) => {
+    if (!files?.length || !savedCarId) return;
+    setSaveError("");
     const stamp = Date.now();
-    const selected = Array.from(files).map((file, index) => ({
+    const selected: IntakeUpload[] = Array.from(files).map((file, index) => ({
       id: `${file.name}-${file.lastModified}-${stamp}-${index}`,
+      serverId: null,
       name: file.name,
       size: file.size,
       type: file.type,
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      status: "uploading",
+      sourceFile: file,
     }));
     setUploads((current) => [...current, ...selected]);
-    if (selected.some((file) => file.type.startsWith("image/"))) {
-      setReceived((current) => current.includes("photos") ? current : [...current, "photos"]);
-    }
-    if (selected.some((file) => file.type.startsWith("video/"))) {
-      setReceived((current) => current.includes("video") ? current : [...current, "video"]);
-    }
+    await Promise.all(selected.map((item) => uploadFile(item, savedCarId)));
   };
 
-  const removeUpload = (id: string) => {
+  const removeUpload = async (id: string) => {
+    const target = uploads.find((file) => file.id === id);
+    if (!target) return;
+    if (target.serverId) {
+      setSaveError("");
+      try {
+        const response = await fetch(`/api/files/${target.serverId}`, { method: "DELETE" });
+        const data = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(data.error || "The file could not be removed.");
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : "The file could not be removed.");
+        return;
+      }
+    }
     setUploads((current) => {
-      const target = current.find((file) => file.id === id);
-      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      if (target.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(target.previewUrl);
       const remaining = current.filter((file) => file.id !== id);
       if (!remaining.some((file) => file.type.startsWith("image/"))) {
         setReceived((items) => items.filter((item) => item !== "photos"));
@@ -565,6 +768,10 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
     setStep(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  if (loadingCar) {
+    return <main className="grid min-h-[calc(100vh-5.25rem)] place-items-center bg-[#e9e5dc] px-5 text-[#171918]"><div className="text-center"><div className="mx-auto size-10 animate-spin rounded-full border-2 border-black/12 border-t-[#806c49]" /><p className="mt-4 text-lg font-semibold">Opening car file…</p></div></main>;
+  }
 
   if (submitted) {
     return (
@@ -586,11 +793,11 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
             <button onClick={() => setView("desk")} className="flex min-h-11 items-center gap-2 text-base font-semibold text-black/58 hover:text-black"><ArrowLeft className="size-5" /> Barnaby’s Desk</button>
-            <p className="mt-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#806c49]">New inventory file</p>
-            <h1 className="mt-3 font-display text-5xl leading-none sm:text-6xl">Add a Car</h1>
+            <p className="mt-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#806c49]">{existingCarId ? "Saved inventory file" : "New inventory file"}</p>
+            <h1 className="mt-3 font-display text-5xl leading-none sm:text-6xl">{existingCarId ? carName : "Add a Car"}</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-black/58">Get the deal into the system now. Photos and paperwork can follow.</p>
           </div>
-          <div className="rounded-lg border border-black/10 bg-white/55 px-4 py-3 text-sm font-semibold text-black/48">Preview mode · Files remain on this device</div>
+          <div className="rounded-lg border border-[#60765c]/24 bg-[#60765c]/8 px-4 py-3 text-sm font-semibold text-[#52654e]"><ShieldCheck className="mr-2 inline size-4" />Secure storage active</div>
         </div>
 
         <nav className="mt-9 grid gap-2 rounded-2xl border border-black/10 bg-white/55 p-2 sm:grid-cols-4" aria-label="Car intake progress">
@@ -611,6 +818,8 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
           })}
         </nav>
 
+        {saveError && <div className="mt-5 flex items-start justify-between gap-4 rounded-xl border border-[#8f3329]/20 bg-[#8f3329]/7 p-4 text-[#7a2d25]" role="alert"><span>{saveError}</span><button onClick={() => setSaveError("")} className="grid size-9 shrink-0 place-items-center rounded-full hover:bg-[#8f3329]/10" aria-label="Dismiss error"><X className="size-5" /></button></div>}
+
         <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_22rem]">
           <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_14px_42px_rgba(21,23,22,0.06)] sm:p-8">
             {step === 1 && (
@@ -628,7 +837,7 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
                 </div>
                 <div className="mt-9 flex flex-col gap-3 border-t border-black/8 pt-7 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-black/45">Partial information is okay. The checklist will flag what remains.</p>
-                  <Button onClick={() => { setRecordCreated(true); goTo(2); }} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">Create car file <ArrowRight className="ml-2 size-5" /></Button>
+                  <Button disabled={saving} onClick={createCar} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Creating file…" : "Create car file"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button>
                 </div>
               </div>
             )}
@@ -659,7 +868,7 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
                   <div className="sm:col-span-2"><label className="admin-label" htmlFor="car-vin">VIN or chassis number</label><input id="car-vin" value={car.vin} onChange={(event) => setField("vin", event.target.value)} className="admin-field mt-2" placeholder="Enter now or leave for the checklist" /></div>
                   <div className="sm:col-span-2"><label className="admin-label" htmlFor="call-notes">Notes from the call</label><textarea id="call-notes" value={car.notes} onChange={(event) => setField("notes", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" placeholder="Ownership, condition, timing, known history and anything promised to the seller" /></div>
                 </div>
-                <div className="mt-9 flex justify-end"><Button onClick={() => goTo(3)} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">Continue to files <ArrowRight className="ml-2 size-5" /></Button></div>
+                <div className="mt-9 flex justify-end"><Button disabled={saving} onClick={async () => { if (await saveCar()) goTo(3); }} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">{saving ? "Saving…" : "Save and continue"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button></div>
               </div>
             )}
 
@@ -686,8 +895,8 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
                 {uploads.length > 0 && (
                   <section className="mt-7" aria-live="polite">
                     <div className="flex items-end justify-between gap-4">
-                      <div><h3 className="text-lg font-semibold">Selected files</h3><p className="mt-1 text-sm text-black/45">Visible for this preview session</p></div>
-                      <span className="rounded-full bg-[#60765c]/12 px-3 py-1.5 text-sm font-semibold text-[#52654e]">{uploads.length} ready</span>
+                      <div><h3 className="text-lg font-semibold">Saved files</h3><p className="mt-1 text-sm text-black/45">Stored with this car and available next time</p></div>
+                      <span className="rounded-full bg-[#60765c]/12 px-3 py-1.5 text-sm font-semibold text-[#52654e]">{uploads.filter((file) => file.status === "saved").length} saved</span>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {uploads.map((file) => (
@@ -697,8 +906,12 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
                           ) : (
                             <div className="grid h-32 place-items-center bg-black/[0.035]"><FileText className="size-9 text-[#806c49]" /></div>
                           )}
-                          <button onClick={() => removeUpload(file.id)} aria-label={`Remove ${file.name}`} className="absolute right-2 top-2 grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black"><X className="size-5" /></button>
-                          <div className="p-3"><p className="truncate text-sm font-semibold" title={file.name}>{file.name}</p><p className="mt-1 text-xs text-black/44">{formatFileSize(file.size)}</p></div>
+                          <button disabled={file.status === "uploading"} onClick={() => removeUpload(file.id)} aria-label={`Remove ${file.name}`} className="absolute right-2 top-2 grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black disabled:cursor-wait disabled:opacity-40"><X className="size-5" /></button>
+                          <div className="p-3">
+                            <p className="truncate text-sm font-semibold" title={file.name}>{file.name}</p>
+                            <div className="mt-1 flex items-center justify-between gap-2"><p className="text-xs text-black/44">{formatFileSize(file.size)}</p><span className={`text-xs font-bold ${file.status === "saved" ? "text-[#52654e]" : file.status === "error" ? "text-[#8f3329]" : "text-[#806c49]"}`}>{file.status === "saved" ? "Saved" : file.status === "error" ? "Failed" : "Uploading…"}</span></div>
+                            {file.status === "error" && file.sourceFile && savedCarId && <button onClick={() => uploadFile(file, savedCarId)} className="mt-3 min-h-10 w-full rounded-lg border border-[#8f3329]/20 text-sm font-semibold text-[#7a2d25] hover:bg-[#8f3329]/7">Try again</button>}
+                          </div>
                         </article>
                       ))}
                     </div>
@@ -743,7 +956,7 @@ function CarIntake({ setView }: { setView: (view: View) => void }) {
                 </div>
                 <div className="mt-9 flex flex-col gap-3 border-t border-black/8 pt-7 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-black/45">The seller’s approval is still required before any public release.</p>
-                  <Button onClick={() => setSubmitted(true)} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">Send to Dean <ArrowRight className="ml-2 size-5" /></Button>
+                  <Button disabled={saving || uploads.some((file) => file.status === "uploading")} onClick={async () => { if (await saveCar("review")) setSubmitted(true); }} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : "Send to Dean"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button>
                 </div>
               </div>
             )}
@@ -817,13 +1030,14 @@ function Membership() {
 
 export default function Home() {
   const [view, setView] = useState<View>("registry");
+  const [activeCarId, setActiveCarId] = useState<string | null>(null);
   return (
     <div className="min-h-screen bg-[#101211]">
       <Header view={view} setView={setView} />
       {view === "registry" && <Registry setView={setView} />}
       {view === "wanted" && <WantedList />}
-      {view === "desk" && <BarnabyDesk setView={setView} />}
-      {view === "intake" && <CarIntake setView={setView} />}
+      {view === "desk" && <BarnabyDesk onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
+      {view === "intake" && <CarIntake setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} />}
       {view === "membership" && <Membership />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">

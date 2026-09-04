@@ -46,4 +46,7 @@ The first prototype demonstrates the collector Registry, private dossier request
 - Release defaults to Private Match; member or public visibility requires explicit selection and team approval.
 - The handoff separates Dean's presentation work from Barnaby's remaining seller follow-up.
 - Selected images display as local thumbnails with filenames, file sizes, counts, and removal controls.
-- Preview files remain on the device and clear after refresh. Production storage and notifications are deliberately deferred.
+- Car records persist in D1 and appear under Recent Car Files on Barnaby's Desk.
+- Photos, PDFs, and videos persist in private R2 storage and reopen with the car file.
+- Every write requires an authenticated visitor already allowed into the private Site.
+- Production email and reminder delivery remain deliberately deferred.
