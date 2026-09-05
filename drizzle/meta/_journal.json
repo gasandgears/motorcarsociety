@@ -22,6 +22,13 @@
       "when": 1788561034594,
       "tag": "0002_purple_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788575093881,
+      "tag": "0003_yielding_punisher",
+      "breakpoints": true
     }
   ]
 }

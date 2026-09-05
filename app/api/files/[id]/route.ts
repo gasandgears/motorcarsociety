@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carFiles } from "@/db/schema";
-import { getAuthenticatedUser, getBucket, serverError, unauthorized } from "../../_lib";
+import { canManageCars, forbidden, getAuthenticatedUser, getBucket, getOrCreateAccount, serverError, unauthorized } from "../../_lib";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
   if (!getAuthenticatedUser(request)) return unauthorized();
+  if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
   try {
     const { id } = await context.params;
     const [file] = await getDb().select().from(carFiles).where(eq(carFiles.id, id)).limit(1);
@@ -29,6 +30,7 @@ export async function GET(request: Request, context: RouteContext) {
 
 export async function DELETE(request: Request, context: RouteContext) {
   if (!getAuthenticatedUser(request)) return unauthorized();
+  if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
   try {
     const { id } = await context.params;
     const [file] = await getDb().select().from(carFiles).where(eq(carFiles.id, id)).limit(1);

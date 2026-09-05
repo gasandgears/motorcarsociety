@@ -2,7 +2,7 @@ import { desc } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carTaskStates, cars } from "@/db/schema";
-import { forbidden, getAuthenticatedUser, isBarnaby, serverError, unauthorized } from "../_lib";
+import { forbidden, getAuthenticatedUser, getOrCreateAccount, isBarnaby, serverError, unauthorized } from "../_lib";
 import { buildDeskSummary } from "./_tasks";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const user = getAuthenticatedUser(request);
   if (!user) return unauthorized();
-  if (!isBarnaby(user)) return forbidden();
+  const account = await getOrCreateAccount(request);
+  if (!isBarnaby(account)) return forbidden();
   try {
     const [savedCars, savedStates] = await Promise.all([
       getDb().select().from(cars).orderBy(desc(cars.updatedAt)).limit(50),

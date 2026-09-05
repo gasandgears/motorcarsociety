@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carTaskStates } from "@/db/schema";
-import { carExists, cleanText, forbidden, getAuthenticatedUser, isBarnaby, serverError, unauthorized } from "../../../_lib";
+import { carExists, cleanText, forbidden, getAuthenticatedUser, getOrCreateAccount, isBarnaby, serverError, unauthorized } from "../../../_lib";
 import { validDeskTaskKeys } from "../../../desk/_tasks";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function PATCH(request: Request, context: RouteContext) {
   const user = getAuthenticatedUser(request);
   if (!user) return unauthorized();
-  if (!isBarnaby(user)) return forbidden();
+  const account = await getOrCreateAccount(request);
+  if (!isBarnaby(account)) return forbidden();
   try {
     const { id: carId } = await context.params;
     if (!(await carExists(carId))) return Response.json({ error: "Car file not found." }, { status: 404 });

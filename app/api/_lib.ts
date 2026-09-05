@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 
 import { getDb } from "@/db";
-import { cars } from "@/db/schema";
+import { accounts, cars } from "@/db/schema";
 
 export type AuthenticatedUser = {
   id: string;
@@ -21,11 +21,50 @@ export function unauthorized() {
 }
 
 export function forbidden() {
-  return Response.json({ error: "Barnaby’s Desk is restricted to Barnaby’s account." }, { status: 403 });
+  return Response.json({ error: "You do not have access to this area." }, { status: 403 });
 }
 
-export function isBarnaby(user: AuthenticatedUser | null) {
-  return user?.email.trim().toLowerCase() === "deankirkland@me.com";
+export type Account = typeof accounts.$inferSelect;
+
+export async function getOrCreateAccount(request: Request): Promise<Account | null> {
+  const user = getAuthenticatedUser(request);
+  if (!user) return null;
+  const email = user.email.trim().toLowerCase();
+  const now = Date.now();
+  const bootstrap = email === "deank@kirklanddigital.com"
+    ? { role: "admin", tier: "leadership", status: "approved" }
+    : email === "deankirkland@me.com"
+      ? { role: "barnaby", tier: "staff", status: "approved" }
+      : { role: "applicant", tier: "none", status: "pending" };
+  const db = getDb();
+  await db.insert(accounts).values({
+    userId: user.id,
+    email,
+    displayName: email.split("@")[0],
+    phone: "",
+    location: "",
+    collectionNotes: "",
+    ...bootstrap,
+    createdAt: now,
+    updatedAt: now,
+  }).onConflictDoNothing({ target: accounts.userId });
+  if (bootstrap.role !== "applicant") {
+    await db.update(accounts).set({ ...bootstrap, email, updatedAt: now }).where(eq(accounts.userId, user.id));
+  }
+  const [account] = await db.select().from(accounts).where(eq(accounts.userId, user.id)).limit(1);
+  return account || null;
+}
+
+export function isBarnaby(account: Account | null) {
+  return account?.role === "barnaby" && account.status === "approved";
+}
+
+export function isAdmin(account: Account | null) {
+  return account?.role === "admin" && account.status === "approved";
+}
+
+export function canManageCars(account: Account | null) {
+  return isBarnaby(account) || isAdmin(account);
 }
 
 export function serverError(error: unknown, message = "The request could not be completed.") {

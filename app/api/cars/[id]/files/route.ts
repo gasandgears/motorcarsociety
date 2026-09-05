@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carFiles } from "@/db/schema";
-import { carExists, getAuthenticatedUser, getBucket, safeFilename, serverError, unauthorized } from "../../../_lib";
+import { canManageCars, carExists, forbidden, getAuthenticatedUser, getBucket, getOrCreateAccount, safeFilename, serverError, unauthorized } from "../../../_lib";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
   if (!getAuthenticatedUser(request)) return unauthorized();
+  if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
   try {
     const { id } = await context.params;
     const files = await getDb().select().from(carFiles).where(eq(carFiles.carId, id)).orderBy(desc(carFiles.createdAt));
@@ -22,6 +23,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function POST(request: Request, context: RouteContext) {
   const user = getAuthenticatedUser(request);
   if (!user) return unauthorized();
+  if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
 
   try {
     const { id: carId } = await context.params;

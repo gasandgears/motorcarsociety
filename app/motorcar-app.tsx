@@ -36,14 +36,31 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-type View = "registry" | "wanted" | "desk" | "intake" | "membership";
+type View = "registry" | "wanted" | "desk" | "intake" | "membership" | "admin";
+
+type MemberAccount = {
+  userId: string;
+  email: string;
+  displayName: string;
+  phone: string;
+  location: string;
+  collectionNotes: string;
+  role: "applicant" | "member" | "barnaby" | "admin";
+  tier: "none" | "standard" | "priority" | "private" | "staff" | "leadership";
+  status: "pending" | "approved" | "denied";
+  createdAt: number;
+  updatedAt: number;
+};
 
 const inventory = [
   { year: "1967", name: "Ferrari 275 GTB/4", detail: "Long-term West Coast ownership", status: "Private Match", code: "F" },
   { year: "1931", name: "Duesenberg Model J", detail: "Coachwork history under review", status: "Member Preview", code: "D" },
   { year: "1973", name: "Porsche 911 Carrera RS", detail: "Touring specification", status: "Available", code: "P" },
 ];
+
+type RegistryCar = { id: string; year: string; make: string; model: string; detail: string; expectedPrice: string; visibility: string; status: string; updatedAt: number };
 
 function Brand() {
   return (
@@ -59,12 +76,13 @@ function Brand() {
   );
 }
 
-function Header({ view, setView, canAccessDesk }: { view: View; setView: (view: View) => void; canAccessDesk: boolean }) {
+function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signInPath }: { view: View; setView: (view: View) => void; canAccessDesk: boolean; canAccessAdmin: boolean; userEmail: string | null; signInPath: string }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const links: { id: View; label: string }[] = [
     { id: "registry", label: "The Registry" },
     { id: "wanted", label: "Wanted List" },
     ...(canAccessDesk ? [{ id: "desk" as View, label: "Barnaby’s Desk" }] : []),
+    ...(canAccessAdmin ? [{ id: "admin" as View, label: "Admin Console" }] : []),
   ];
 
   const selectView = (next: View) => {
@@ -91,13 +109,11 @@ function Header({ view, setView, canAccessDesk }: { view: View; setView: (view: 
           ))}
         </nav>
 
-        <Button
-          variant="outline"
-          onClick={() => selectView("membership")}
-          className="hidden h-11 border-white/20 bg-transparent px-5 text-white hover:bg-white hover:text-black lg:inline-flex"
-        >
-          Member Access
-        </Button>
+        {userEmail ? (
+          <Button variant="outline" onClick={() => selectView("membership")} className="hidden h-11 border-white/20 bg-transparent px-5 text-white hover:bg-white hover:text-black lg:inline-flex">My Account</Button>
+        ) : (
+          <a href={signInPath} target="_top" className="hidden min-h-11 items-center rounded-md border border-white/20 px-5 text-[0.95rem] font-semibold text-white transition hover:bg-white hover:text-black lg:inline-flex">Member Sign In</a>
+        )}
 
         <Button
           variant="ghost"
@@ -113,7 +129,7 @@ function Header({ view, setView, canAccessDesk }: { view: View; setView: (view: 
       {mobileOpen && (
         <div className="border-t border-white/10 px-5 py-4 lg:hidden">
           <nav className="grid gap-2" aria-label="Mobile navigation">
-            {[...links, { id: "membership" as View, label: "Member Access" }].map((link) => (
+            {[...links, { id: "membership" as View, label: userEmail ? "My Account" : "Apply / Sign In" }].map((link) => (
               <Button key={link.id} variant="ghost" onClick={() => selectView(link.id)} className="h-13 justify-between px-3 text-base text-white">
                 {link.label}<ChevronRight className="size-5" />
               </Button>
@@ -126,6 +142,23 @@ function Header({ view, setView, canAccessDesk }: { view: View; setView: (view: 
 }
 
 function Registry({ setView }: { setView: (view: View) => void }) {
+  const [registryCars, setRegistryCars] = useState<RegistryCar[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/registry", { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { cars?: RegistryCar[] };
+      if (active && response.ok) setRegistryCars(payload.cars || []);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  const cards = registryCars.length ? registryCars.map((car) => ({
+    id: car.id,
+    year: car.year,
+    name: `${car.make} ${car.model}`.trim() || "Confidential motorcar",
+    detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : "Private details available"),
+    status: car.status === "released" ? (car.visibility === "public" ? "Available" : "Member Preview") : "Internal Review",
+    code: (car.make || car.model || "M").charAt(0).toUpperCase(),
+  })) : inventory.map((car, index) => ({ ...car, id: `curated-${index}` }));
   return (
     <main>
       <section className="relative min-h-[42rem] overflow-hidden border-b border-white/10 lg:min-h-[46rem]">
@@ -208,9 +241,9 @@ function Registry({ setView }: { setView: (view: View) => void }) {
           </div>
 
           <div className="mt-9 grid gap-4 lg:grid-cols-3">
-            {inventory.map((car) => (
+            {cards.map((car) => (
               <button
-                key={car.name}
+                key={car.id}
                 className="group min-h-64 overflow-hidden rounded-xl border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
                 <div className="flex h-28 items-center justify-between border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-6">
@@ -261,13 +294,71 @@ function Registry({ setView }: { setView: (view: View) => void }) {
   );
 }
 
-function WantedList() {
+function WantedList({ userEmail, signInPath }: { userEmail: string | null; signInPath: string }) {
   const [saved, setSaved] = useState(false);
-  const [choices, setChoices] = useState<string[]>(["Ferrari", "Jaguar"]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [choices, setChoices] = useState<string[]>([]);
+  const [specificCar, setSpecificCar] = useState("");
+  const [valueRange, setValueRange] = useState("500-1500");
+  const [era, setEra] = useState("postwar");
+  const [primaryInterest, setPrimaryInterest] = useState("important");
+
+  useEffect(() => {
+    if (!userEmail) return;
+    let active = true;
+    fetch("/api/wanted", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json() as { profile?: { marques: string; specificCar: string; valueRange: string; era: string; primaryInterest: string }; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Your Wanted List could not be loaded.");
+        if (active && payload.profile) {
+          setChoices(payload.profile.marques.split("|").filter(Boolean));
+          setSpecificCar(payload.profile.specificCar);
+          setValueRange(payload.profile.valueRange);
+          setEra(payload.profile.era);
+          setPrimaryInterest(payload.profile.primaryInterest);
+        }
+      })
+      .catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "Your Wanted List could not be loaded."); });
+    return () => { active = false; };
+  }, [userEmail]);
+
   const toggle = (choice: string) => {
     setChoices((current) => current.includes(choice) ? current.filter((item) => item !== choice) : [...current, choice]);
     setSaved(false);
   };
+
+  const saveWantedList = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/wanted", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ marques: choices, specificCar, valueRange, era, primaryInterest }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Your Wanted List could not be saved.");
+      setSaved(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Your Wanted List could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!userEmail) {
+    return (
+      <main className="grid min-h-[calc(100vh-5.25rem)] place-items-center bg-[#101211] px-5 py-12 text-white">
+        <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#181a19] p-7 text-center sm:p-10">
+          <LockKeyhole className="mx-auto size-8 text-[var(--gold-light)]" />
+          <h1 className="mt-5 font-display text-4xl">Your Wanted List is private.</h1>
+          <p className="mt-4 text-lg leading-8 text-white/62">Sign in to create a confidential acquisition profile and receive relevant private matches.</p>
+          <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-7 font-semibold text-[#111]">Sign in to continue</a>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
@@ -297,29 +388,30 @@ function WantedList() {
             </div>
 
             <div className="mt-9 grid gap-7 sm:grid-cols-2">
-              <div><label className="block text-base font-semibold text-white" htmlFor="specific-car">Specific car</label><input id="specific-car" className="field mt-3" placeholder="Example: 1967 Ferrari 275 GTB/4" /></div>
+              <div><label className="block text-base font-semibold text-white" htmlFor="specific-car">Specific car</label><input id="specific-car" value={specificCar} onChange={(event) => { setSpecificCar(event.target.value); setSaved(false); }} className="field mt-3" placeholder="Example: 1967 Ferrari 275 GTB/4" /></div>
               <div>
                 <label className="block text-base font-semibold text-white" htmlFor="value-range">Acquisition range</label>
-                <select id="value-range" className="field mt-3" defaultValue="500-1500">
-                  <option value="250-500">$250,000–$500,000</option><option value="500-1500">$500,000–$1.5 million</option><option value="1500-5000">$1.5–$5 million</option><option value="5000+">Above $5 million</option>
-                </select>
+                <NativeSelect id="value-range" className="field mt-3" value={valueRange} onChange={(event) => { setValueRange(event.target.value); setSaved(false); }}>
+                  <NativeSelectOption value="250-500">$250,000–$500,000</NativeSelectOption><NativeSelectOption value="500-1500">$500,000–$1.5 million</NativeSelectOption><NativeSelectOption value="1500-5000">$1.5–$5 million</NativeSelectOption><NativeSelectOption value="5000+">Above $5 million</NativeSelectOption>
+                </NativeSelect>
               </div>
               <div>
                 <label className="block text-base font-semibold text-white" htmlFor="era">Preferred era</label>
-                <select id="era" className="field mt-3" defaultValue="postwar">
-                  <option value="prewar">Pre-war</option><option value="postwar">1946–1969</option><option value="seventies">1970–1989</option><option value="modern">1990 and newer</option>
-                </select>
+                <NativeSelect id="era" className="field mt-3" value={era} onChange={(event) => { setEra(event.target.value); setSaved(false); }}>
+                  <NativeSelectOption value="prewar">Pre-war</NativeSelectOption><NativeSelectOption value="postwar">1946–1969</NativeSelectOption><NativeSelectOption value="seventies">1970–1989</NativeSelectOption><NativeSelectOption value="modern">1990 and newer</NativeSelectOption><NativeSelectOption value="any">Any era</NativeSelectOption>
+                </NativeSelect>
               </div>
               <div>
                 <label className="block text-base font-semibold text-white" htmlFor="condition">Primary interest</label>
-                <select id="condition" className="field mt-3" defaultValue="important">
-                  <option value="important">Historically significant cars</option><option value="competition">Competition cars</option><option value="preservation">Highly original cars</option><option value="concours">Concours-level cars</option>
-                </select>
+                <NativeSelect id="condition" className="field mt-3" value={primaryInterest} onChange={(event) => { setPrimaryInterest(event.target.value); setSaved(false); }}>
+                  <NativeSelectOption value="important">Historically significant cars</NativeSelectOption><NativeSelectOption value="competition">Competition cars</NativeSelectOption><NativeSelectOption value="preservation">Highly original cars</NativeSelectOption><NativeSelectOption value="concours">Concours-level cars</NativeSelectOption><NativeSelectOption value="any">Any important car</NativeSelectOption>
+                </NativeSelect>
               </div>
             </div>
 
-            <Button onClick={() => setSaved(true)} className="mt-9 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)] sm:w-auto sm:px-8">
-              {saved ? <Check className="mr-2 size-5" /> : <ShieldCheck className="mr-2 size-5" />}{saved ? "Wanted List Saved" : "Save Private Wanted List"}
+            {error && <p className="mt-6 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100" role="alert">{error}</p>}
+            <Button disabled={saving} onClick={saveWantedList} className="mt-9 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)] sm:w-auto sm:px-8">
+              {saved ? <Check className="mr-2 size-5" /> : <ShieldCheck className="mr-2 size-5" />}{saving ? "Saving…" : saved ? "Wanted List Saved" : "Save Private Wanted List"}
             </Button>
           </section>
 
@@ -333,7 +425,7 @@ function WantedList() {
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-white/45">Current profile</p>
               <div className="mt-5 space-y-4 text-base">
                 <div className="flex justify-between gap-3"><span className="text-white/55">Marques</span><span className="text-right text-white">{choices.length || "None"}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-white/55">Range</span><span className="text-right text-white">$500K–$1.5M</span></div>
+                <div className="flex justify-between gap-3"><span className="text-white/55">Range</span><span className="text-right text-white">{{"250-500":"$250K–$500K","500-1500":"$500K–$1.5M","1500-5000":"$1.5M–$5M","5000+":"$5M+"}[valueRange]}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-white/55">Alert order</span><span className="text-right text-white">Private Match</span></div>
               </div>
             </div>
@@ -605,7 +697,8 @@ type SavedFileDetail = {
   category: string;
 };
 
-function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setView: (view: View) => void; existingCarId: string | null; onCarCreated: (id: string) => void; signInPath: string }) {
+function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnView }: { setView: (view: View) => void; existingCarId: string | null; onCarCreated: (id: string) => void; signInPath: string; returnView: "desk" | "admin" }) {
+  const returnLabel = returnView === "admin" ? "Admin Console" : "Barnaby’s Desk";
   const [step, setStep] = useState(1);
   const [recordCreated, setRecordCreated] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -848,7 +941,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
           <p className="mt-7 text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Handoff complete</p>
           <h1 className="mt-3 font-display text-4xl leading-tight sm:text-5xl">Dean has the {carName}.</h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-black/58">The car remains on Barnaby’s Desk until the presentation is approved. Any missing files stay visible and assigned.</p>
-          <Button onClick={() => setView("desk")} className="mt-8 h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">Return to Barnaby’s Desk <ArrowRight className="ml-2 size-5" /></Button>
+          <Button onClick={() => setView(returnView)} className="mt-8 h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">Return to {returnLabel} <ArrowRight className="ml-2 size-5" /></Button>
         </section>
       </main>
     );
@@ -859,7 +952,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
       <div className="mx-auto max-w-[90rem]">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <button onClick={() => setView("desk")} className="flex min-h-11 items-center gap-2 text-base font-semibold text-black/58 hover:text-black"><ArrowLeft className="size-5" /> Barnaby’s Desk</button>
+            <button onClick={() => setView(returnView)} className="flex min-h-11 items-center gap-2 text-base font-semibold text-black/58 hover:text-black"><ArrowLeft className="size-5" /> {returnLabel}</button>
             <p className="mt-5 text-sm font-semibold uppercase tracking-[0.16em] text-[#806c49]">{existingCarId ? "Saved inventory file" : "New inventory file"}</p>
             <h1 className="mt-3 font-display text-5xl leading-none sm:text-6xl">{existingCarId ? carName : "Add a Car"}</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-black/58">Get the deal into the system now. Photos and paperwork can follow.</p>
@@ -1094,14 +1187,56 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath }: { setVi
   );
 }
 
-function Membership() {
+function Membership({ account, setAccount, signInPath, setView }: { account: MemberAccount | null; setAccount: (account: MemberAccount) => void; signInPath: string; setView: (view: View) => void }) {
+  const [displayName, setDisplayName] = useState(account?.displayName || "");
+  const [phone, setPhone] = useState(account?.phone || "");
+  const [location, setLocation] = useState(account?.location || "");
+  const [collectionNotes, setCollectionNotes] = useState(account?.collectionNotes || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/me", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ displayName, phone, location, collectionNotes }) });
+      const payload = await response.json() as { account?: MemberAccount; error?: string };
+      if (!response.ok || !payload.account) throw new Error(payload.error || "Your application could not be saved.");
+      setAccount(payload.account);
+      setSaved(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Your application could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!account) {
+    return (
+      <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-16 text-white">
+        <div className="mx-auto max-w-5xl">
+          <p className="eyebrow">Membership</p>
+          <h1 className="mt-4 max-w-3xl font-display text-5xl leading-[0.98] sm:text-6xl">Join the private registry.</h1>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-white/63">Create an account to apply, save a private Wanted List, and receive access based on your approved membership level.</p>
+          <div className="mt-9 grid gap-4 md:grid-cols-3">
+            {[["Verified Member", "Complimentary at launch", "Approved Registry access and a private Wanted List."], ["Priority Member", "$995 annually", "Earlier matches and direct specialist coordination."], ["Private Client", "$2,500 annually", "Invitation-only acquisition and collection support."]].map(([name, price, copy]) => <section key={name} className="rounded-xl border border-white/10 bg-[#181a19] p-6"><h2 className="font-display text-2xl">{name}</h2><p className="mt-3 font-semibold text-[var(--gold-light)]">{price}</p><p className="mt-4 leading-7 text-white/56">{copy}</p></section>)}
+          </div>
+          <a href={signInPath} target="_top" className="mt-8 inline-flex min-h-14 items-center rounded-lg bg-[var(--gold)] px-7 font-semibold text-[#111]">Create account or sign in <ArrowRight className="ml-2 size-5" /></a>
+        </div>
+      </main>
+    );
+  }
+
+  const approved = account.status === "approved";
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
         <section className="lg:sticky lg:top-32">
           <p className="eyebrow">Membership</p>
           <h1 className="mt-4 font-display text-5xl leading-[0.98] text-white sm:text-6xl">Direct access. Quietly handled.</h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-white/63">Membership is complimentary and approved individually. Tell us what you collect and what you are actively seeking.</p>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-white/63">Every account is reviewed individually. Your approved level controls what appears in the Registry and which private services are available.</p>
+          <div className="mt-7 inline-flex rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">{approved ? `${account.tier === "leadership" ? "Leadership" : account.tier === "staff" ? "Staff" : account.tier === "private" ? "Private Client" : account.tier === "priority" ? "Priority Member" : "Verified Member"} · Approved` : account.status === "denied" ? "Application not approved" : "Application pending review"}</div>
           <div className="mt-9 space-y-4">
             {[
               [UserRoundCheck, "Personally reviewed membership"],
@@ -1116,35 +1251,124 @@ function Membership() {
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-[#181a19] p-6 sm:p-8">
-          <h2 className="font-display text-3xl text-white">Apply for private access</h2>
+          <h2 className="font-display text-3xl text-white">{approved ? "Your member account" : "Complete your application"}</h2>
           <div className="mt-7 grid gap-6 sm:grid-cols-2">
-            <div><label htmlFor="first-name" className="field-label">First name</label><input id="first-name" className="field mt-2" /></div>
-            <div><label htmlFor="last-name" className="field-label">Last name</label><input id="last-name" className="field mt-2" /></div>
-            <div><label htmlFor="email" className="field-label">Email</label><input id="email" type="email" className="field mt-2" /></div>
-            <div><label htmlFor="phone" className="field-label">Phone</label><input id="phone" type="tel" className="field mt-2" /></div>
-            <div className="sm:col-span-2"><label htmlFor="location" className="field-label">City and country</label><input id="location" className="field mt-2" placeholder="Newport Beach, United States" /></div>
-            <div className="sm:col-span-2"><label htmlFor="collection" className="field-label">Tell us what you collect</label><textarea id="collection" className="field mt-2 min-h-32 resize-y" placeholder="Current collection, preferred marques and cars you are seeking" /></div>
+            <div className="sm:col-span-2"><label htmlFor="display-name" className="field-label">Name</label><input id="display-name" value={displayName} onChange={(event) => { setDisplayName(event.target.value); setSaved(false); }} className="field mt-2" /></div>
+            <div><label htmlFor="email" className="field-label">Email</label><input id="email" type="email" value={account.email} readOnly className="field mt-2 opacity-65" /></div>
+            <div><label htmlFor="phone" className="field-label">Phone</label><input id="phone" type="tel" value={phone} onChange={(event) => { setPhone(event.target.value); setSaved(false); }} className="field mt-2" /></div>
+            <div className="sm:col-span-2"><label htmlFor="location" className="field-label">City and country</label><input id="location" value={location} onChange={(event) => { setLocation(event.target.value); setSaved(false); }} className="field mt-2" placeholder="Newport Beach, United States" /></div>
+            <div className="sm:col-span-2"><label htmlFor="collection" className="field-label">Tell us what you collect</label><textarea id="collection" value={collectionNotes} onChange={(event) => { setCollectionNotes(event.target.value); setSaved(false); }} className="field mt-2 min-h-32 resize-y" placeholder="Current collection, preferred marques and cars you are seeking" /></div>
           </div>
-          <Button className="mt-8 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">Submit for Review <ArrowRight className="ml-2 size-5" /></Button>
-          <p className="mt-5 text-center text-sm leading-6 text-white/43">Applications are reviewed by the Motorcar Society team. No automatic approvals.</p>
+          {error && <p className="mt-6 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
+          <Button disabled={saving} onClick={submit} className="mt-8 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : saved ? "Account Saved" : approved ? "Save Account" : "Submit for Review"} {!saving && (saved ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />)}</Button>
+          {approved && <Button variant="outline" onClick={() => setView("wanted")} className="mt-3 h-14 w-full border-white/18 bg-transparent text-white hover:bg-white hover:text-black">Open My Wanted List</Button>}
+          <p className="mt-5 text-center text-sm leading-6 text-white/43">Applications are reviewed by the Motorcar Society team. No automatic approvals or charges.</p>
         </section>
       </div>
     </main>
   );
 }
 
-export default function MotorcarApp({ signInPath, userEmail }: { signInPath: string; userEmail: string }) {
+function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
+  const [members, setMembers] = useState<MemberAccount[]>([]);
+  const [cars, setCars] = useState<RegistryCar[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/members", { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { members?: MemberAccount[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Accounts could not be loaded.");
+      if (active) setMembers(payload.members || []);
+    }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "Accounts could not be loaded."); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/cars", { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { cars?: RegistryCar[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Car files could not be loaded.");
+      if (active) setCars(payload.cars || []);
+    }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "Car files could not be loaded."); });
+    return () => { active = false; };
+  }, []);
+
+  const updateLocal = (userId: string, field: "role" | "tier" | "status", value: string) => setMembers((current) => current.map((member) => member.userId === userId ? { ...member, [field]: value } as MemberAccount : member));
+  const save = async (member: MemberAccount) => {
+    setSavingId(member.userId);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/members", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId: member.userId, role: member.role, tier: member.tier, status: member.status }) });
+      const payload = await response.json() as { member?: MemberAccount; error?: string };
+      if (!response.ok || !payload.member) throw new Error(payload.error || "Account changes could not be saved.");
+      setMembers((current) => current.map((item) => item.userId === member.userId ? payload.member! : item));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Account changes could not be saved.");
+    } finally { setSavingId(null); }
+  };
+
+  const updateCarLocal = (id: string, field: "status" | "visibility", value: string) => setCars((current) => current.map((car) => car.id === id ? { ...car, [field]: value } : car));
+  const releaseCar = async (car: RegistryCar) => {
+    setSavingId(car.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/cars/${car.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: car.status, visibility: car.visibility }) });
+      const payload = await response.json() as { car?: RegistryCar; error?: string };
+      if (!response.ok || !payload.car) throw new Error(payload.error || "Release settings could not be saved.");
+      setCars((current) => current.map((item) => item.id === car.id ? payload.car! : item));
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Release settings could not be saved."); }
+    finally { setSavingId(null); }
+  };
+
+  return (
+    <main className="min-h-[calc(100vh-5.25rem)] bg-[#e9e5dc] px-5 py-12 text-[#171918] sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-[90rem]">
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Dean only</p>
+        <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><h1 className="font-display text-5xl sm:text-6xl">Admin Console</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-black/58">Approve member access, assign tiers, and keep staff permissions separate.</p></div><Button onClick={() => onOpenCar("")} className="h-13 bg-[#1a1c1b] px-6 text-white hover:bg-[#343735]">Create car file</Button></div>
+        {error && <p className="mt-7 rounded-lg border border-red-700/20 bg-red-700/8 p-4 text-sm text-red-800">{error}</p>}
+        <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+          <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Registry releases</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{cars.length} car files</span></div>
+          {cars.length === 0 ? <p className="mt-7 text-black/50">Create the first car file when an owner is ready.</p> : <div className="mt-6 space-y-3">{cars.map((car) => <article key={car.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto] lg:items-end"><div><p className="font-display text-2xl">{car.year} {car.make} {car.model}</p><p className="mt-1 text-sm text-black/48">{car.detail || "Location not entered"}</p></div><div><label className="admin-label">Audience</label><NativeSelect value={car.visibility} onChange={(event) => updateCarLocal(car.id, "visibility", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="private">Private match</NativeSelectOption><NativeSelectOption value="members">Members</NativeSelectOption><NativeSelectOption value="public">Public</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Status</label><NativeSelect value={car.status} onChange={(event) => updateCarLocal(car.id, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="intake">Intake</NativeSelectOption><NativeSelectOption value="review">Review</NativeSelectOption><NativeSelectOption value="ready">Ready</NativeSelectOption><NativeSelectOption value="released">Released</NativeSelectOption></NativeSelect></div><Button variant="outline" onClick={() => onOpenCar(car.id)} className="h-11 border-black/15">Open file</Button><Button disabled={savingId === car.id} onClick={() => releaseCar(car)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === car.id ? "Saving…" : "Save release"}</Button></article>)}</div>}
+        </section>
+        <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+          <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Accounts</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{members.filter((member) => member.status === "pending").length} pending</span></div>
+          {loading ? <p className="mt-7 text-black/50">Loading accounts…</p> : members.length === 0 ? <p className="mt-7 text-black/50">Accounts appear here after the first sign-in.</p> : <div className="mt-6 space-y-3">{members.map((member) => <article key={member.userId} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(14rem,1fr)_10rem_11rem_10rem_auto] lg:items-end"><div className="min-w-0"><p className="truncate font-semibold">{member.displayName || member.email}</p><p className="mt-1 truncate text-sm text-black/48">{member.email}</p></div><div><label className="admin-label">Status</label><NativeSelect value={member.status} onChange={(event) => updateLocal(member.userId, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="pending">Pending</NativeSelectOption><NativeSelectOption value="approved">Approved</NativeSelectOption><NativeSelectOption value="denied">Denied</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Role</label><NativeSelect value={member.role} onChange={(event) => updateLocal(member.userId, "role", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="applicant">Applicant</NativeSelectOption><NativeSelectOption value="member">Member</NativeSelectOption><NativeSelectOption value="barnaby">Barnaby</NativeSelectOption><NativeSelectOption value="admin">Admin</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Level</label><NativeSelect value={member.tier} onChange={(event) => updateLocal(member.userId, "tier", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="none">None</NativeSelectOption><NativeSelectOption value="standard">Verified</NativeSelectOption><NativeSelectOption value="priority">Priority</NativeSelectOption><NativeSelectOption value="private">Private</NativeSelectOption><NativeSelectOption value="staff">Staff</NativeSelectOption><NativeSelectOption value="leadership">Leadership</NativeSelectOption></NativeSelect></div><Button disabled={savingId === member.userId} onClick={() => save(member)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === member.userId ? "Saving…" : "Save"}</Button></article>)}</div>}
+        </section>
+      </div>
+    </main>
+  );
+}
+
+export default function MotorcarApp({ signInPath, userEmail }: { signInPath: string; userEmail: string | null }) {
   const [view, setView] = useState<View>("registry");
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
-  const canAccessDesk = userEmail.trim().toLowerCase() === "deankirkland@me.com";
+  const initialRole: MemberAccount["role"] | null = !userEmail ? null : userEmail.trim().toLowerCase() === "deank@kirklanddigital.com" ? "admin" : userEmail.trim().toLowerCase() === "deankirkland@me.com" ? "barnaby" : "applicant";
+  const [account, setAccount] = useState<MemberAccount | null>(initialRole ? { userId: "", email: userEmail!, displayName: userEmail!.split("@")[0], phone: "", location: "", collectionNotes: "", role: initialRole, tier: initialRole === "admin" ? "leadership" : initialRole === "barnaby" ? "staff" : "none", status: initialRole === "applicant" ? "pending" : "approved", createdAt: 0, updatedAt: 0 } : null);
+  useEffect(() => {
+    if (!userEmail) return;
+    let active = true;
+    fetch("/api/me", { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { account?: MemberAccount; error?: string };
+      if (!response.ok || !payload.account) throw new Error(payload.error || "Account unavailable.");
+      if (active) setAccount(payload.account);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [userEmail]);
+  const canAccessDesk = account?.role === "barnaby" && account.status === "approved";
+  const canAccessAdmin = account?.role === "admin" && account.status === "approved";
+  const canManageCars = canAccessDesk || canAccessAdmin;
   return (
     <div className="min-h-screen bg-[#101211]">
-      <Header view={view} setView={setView} canAccessDesk={canAccessDesk} />
+      <Header view={view} setView={setView} canAccessDesk={canAccessDesk} canAccessAdmin={canAccessAdmin} userEmail={userEmail} signInPath={signInPath} />
       {view === "registry" && <Registry setView={setView} />}
-      {view === "wanted" && <WantedList />}
+      {view === "wanted" && <WantedList userEmail={userEmail} signInPath={signInPath} />}
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
-      {view === "intake" && canAccessDesk && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} />}
-      {view === "membership" && <Membership />}
+      {view === "admin" && canAccessAdmin && <AdminConsole onOpenCar={(id) => { setActiveCarId(id || null); setView("intake"); }} />}
+      {view === "intake" && canManageCars && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} returnView={canAccessAdmin ? "admin" : "desk"} />}
+      {view === "membership" && <Membership key={account?.updatedAt || account?.userId || "anonymous"} account={account} setAccount={setAccount} signInPath={signInPath} setView={setView} />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">
           <Brand />

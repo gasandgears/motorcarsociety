@@ -2,12 +2,13 @@ import { desc } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { cars } from "@/db/schema";
-import { cleanText, getAuthenticatedUser, serverError, unauthorized } from "../_lib";
+import { canManageCars, cleanText, forbidden, getAuthenticatedUser, getOrCreateAccount, serverError, unauthorized } from "../_lib";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   if (!getAuthenticatedUser(request)) return unauthorized();
+  if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
   try {
     const results = await getDb().select().from(cars).orderBy(desc(cars.updatedAt)).limit(50);
     return Response.json({ cars: results });
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const user = getAuthenticatedUser(request);
   if (!user) return unauthorized();
+  if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
 
   try {
     const body = await request.json() as Record<string, unknown>;

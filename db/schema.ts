@@ -1,5 +1,42 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+export const accounts = sqliteTable(
+  "accounts",
+  {
+    userId: text("user_id").primaryKey(),
+    email: text("email").notNull(),
+    displayName: text("display_name").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    location: text("location").notNull().default(""),
+    collectionNotes: text("collection_notes").notNull().default(""),
+    role: text("role").notNull().default("applicant"),
+    tier: text("tier").notNull().default("none"),
+    status: text("status").notNull().default("pending"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_accounts_email").on(table.email),
+    index("idx_accounts_status_role").on(table.status, table.role),
+  ],
+);
+
+export const wantedProfiles = sqliteTable(
+  "wanted_profiles",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => accounts.userId, { onDelete: "cascade" }),
+    marques: text("marques").notNull().default(""),
+    specificCar: text("specific_car").notNull().default(""),
+    valueRange: text("value_range").notNull().default("500-1500"),
+    era: text("era").notNull().default("postwar"),
+    primaryInterest: text("primary_interest").notNull().default("important"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("idx_wanted_profiles_user_id").on(table.userId)],
+);
+
 export const cars = sqliteTable(
   "cars",
   {
