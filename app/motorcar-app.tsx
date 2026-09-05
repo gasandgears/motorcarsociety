@@ -323,6 +323,7 @@ type RegistryVehicleData = {
   transmission: string;
   drivetrain: string;
   registryId: string;
+  shortDescription: string;
   overview: string;
   highlights: string;
   conditionSummary: string;
@@ -394,7 +395,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
             <p className="eyebrow">Motorcar Society Registry</p>
             <h1 className="mt-4 font-display text-5xl leading-[0.95] sm:text-6xl">{car.year}<span className="mt-3 block text-[0.55em] leading-tight">{car.make} {car.model}</span></h1>
             <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
-            <p className="mt-7 text-lg leading-8 text-white/67">{car.overview || car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</p>
+            <div className="mt-7 whitespace-pre-line text-lg leading-8 text-white/67">{car.shortDescription || car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</div>
             <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
             {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
             {userEmail ? <Button disabled={requesting || requested} onClick={() => void requestDossier()} className="mt-7 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{requesting ? "Sending request…" : requested ? "Dossier requested" : "Request Private Dossier"}{requested ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />}</Button> : <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111]">Sign in to request dossier<ArrowRight className="ml-2 size-5" /></a>}
@@ -840,6 +841,7 @@ type SavedCarDetail = {
   transmission: string;
   drivetrain: string;
   registryId: string;
+  shortDescription: string;
   overview: string;
   highlights: string;
   conditionSummary: string;
@@ -909,6 +911,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
     transmission: "",
     drivetrain: "",
     registryId: "",
+    shortDescription: "",
     overview: "",
     highlights: "",
     conditionSummary: "",
@@ -944,6 +947,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
           transmission: saved.transmission,
           drivetrain: saved.drivetrain,
           registryId: saved.registryId,
+          shortDescription: saved.shortDescription,
           overview: saved.overview,
           highlights: saved.highlights,
           conditionSummary: saved.conditionSummary,
@@ -1247,7 +1251,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
                     <div><label className="admin-label" htmlFor="transmission">Transmission</label><input id="transmission" value={car.transmission} onChange={(event) => setField("transmission", event.target.value)} className="admin-field mt-2" placeholder="4-speed manual" /></div>
                     <div><label className="admin-label" htmlFor="drivetrain">Drivetrain</label><input id="drivetrain" value={car.drivetrain} onChange={(event) => setField("drivetrain", event.target.value)} className="admin-field mt-2" placeholder="Rear-wheel drive" /></div>
                     <div className="sm:col-span-2"><label className="admin-label" htmlFor="registry-id">Registry ID</label><input id="registry-id" value={car.registryId} onChange={(event) => setField("registryId", event.target.value)} className="admin-field mt-2" placeholder="MCS-1970-BOSS302-002" /></div>
-                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-description">Description <span className="font-normal text-black/42">· member-facing vehicle write-up</span></label><textarea id="listing-description" value={car.overview} onChange={(event) => setField("overview", event.target.value)} className="admin-field mt-2 min-h-56 resize-y" placeholder="Write the complete vehicle story members will see: significance, specification, history, condition and what makes this example special…" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-short-description">Short description <span className="font-normal text-black/42">· appears beside the main photo</span></label><textarea id="listing-short-description" value={car.shortDescription} onChange={(event) => setField("shortDescription", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder="A concise introduction shown next to the main photograph…" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-description">Long description <span className="font-normal text-black/42">· full write-up beneath the photo gallery</span></label><textarea id="listing-description" value={car.overview} onChange={(event) => setField("overview", event.target.value)} className="admin-field mt-2 min-h-64 resize-y" placeholder="Write the complete vehicle story: significance, specification, history, condition and what makes this example special…" /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-highlights">Documented highlights <span className="font-normal text-black/42">· one per line</span></label><textarea id="listing-highlights" value={car.highlights} onChange={(event) => setField("highlights", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder={"Documented ownership history\nPeriod-correct drivetrain\nOlder restoration with records"} /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="condition-summary">Condition</label><textarea id="condition-summary" value={car.conditionSummary} onChange={(event) => setField("conditionSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="restoration-summary">Restoration history</label><textarea id="restoration-summary" value={car.restorationSummary} onChange={(event) => setField("restorationSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>

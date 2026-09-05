@@ -57,6 +57,13 @@
       "when": 1788630838049,
       "tag": "0007_busy_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788631848345,
+      "tag": "0008_curly_dark_phoenix",
+      "breakpoints": true
     }
   ]
 }

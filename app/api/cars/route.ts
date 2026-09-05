@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       transmission: "",
       drivetrain: "",
       registryId: "",
+      shortDescription: "",
       overview: "",
       highlights: "",
       conditionSummary: "",

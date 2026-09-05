@@ -83,6 +83,7 @@ export const cars = sqliteTable(
     transmission: text("transmission").notNull().default(""),
     drivetrain: text("drivetrain").notNull().default(""),
     registryId: text("registry_id").notNull().default(""),
+    shortDescription: text("short_description").notNull().default(""),
     overview: text("overview").notNull().default(""),
     highlights: text("highlights").notNull().default(""),
     conditionSummary: text("condition_summary").notNull().default(""),

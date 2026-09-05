@@ -41,6 +41,7 @@ export async function GET(request: Request, context: RouteContext) {
         transmission: car.transmission,
         drivetrain: car.drivetrain,
         registryId: car.registryId,
+        shortDescription: car.shortDescription,
         overview: car.overview,
         highlights: car.highlights,
         conditionSummary: car.conditionSummary,
