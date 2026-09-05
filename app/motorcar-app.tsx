@@ -41,6 +41,9 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 
 type View = "registry" | "vehicle" | "wanted" | "desk" | "intake" | "membership" | "admin";
 
+const SHORT_DESCRIPTION_LIMIT = 449;
+const LONG_DESCRIPTION_GUIDE = 5500;
+
 type MemberAccount = {
   userId: string;
   email: string;
@@ -1251,8 +1254,14 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
                     <div><label className="admin-label" htmlFor="transmission">Transmission</label><input id="transmission" value={car.transmission} onChange={(event) => setField("transmission", event.target.value)} className="admin-field mt-2" placeholder="4-speed manual" /></div>
                     <div><label className="admin-label" htmlFor="drivetrain">Drivetrain</label><input id="drivetrain" value={car.drivetrain} onChange={(event) => setField("drivetrain", event.target.value)} className="admin-field mt-2" placeholder="Rear-wheel drive" /></div>
                     <div className="sm:col-span-2"><label className="admin-label" htmlFor="registry-id">Registry ID</label><input id="registry-id" value={car.registryId} onChange={(event) => setField("registryId", event.target.value)} className="admin-field mt-2" placeholder="MCS-1970-BOSS302-002" /></div>
-                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-short-description">Short description <span className="font-normal text-black/42">· appears beside the main photo</span></label><textarea id="listing-short-description" value={car.shortDescription} onChange={(event) => setField("shortDescription", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder="A concise introduction shown next to the main photograph…" /></div>
-                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-description">Long description <span className="font-normal text-black/42">· full write-up beneath the photo gallery</span></label><textarea id="listing-description" value={car.overview} onChange={(event) => setField("overview", event.target.value)} className="admin-field mt-2 min-h-64 resize-y" placeholder="Write the complete vehicle story: significance, specification, history, condition and what makes this example special…" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4">
+                      <div className="flex items-end justify-between gap-4"><label className="admin-label" htmlFor="listing-short-description">Short description <span className="font-normal text-black/42">· beside the main photo</span></label><span className={`text-sm tabular-nums ${car.shortDescription.length >= SHORT_DESCRIPTION_LIMIT ? "font-semibold text-[#8f3329]" : "text-black/42"}`}>{car.shortDescription.length} / {SHORT_DESCRIPTION_LIMIT}</span></div>
+                      <textarea id="listing-short-description" value={car.shortDescription} maxLength={SHORT_DESCRIPTION_LIMIT} onChange={(event) => setField("shortDescription", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder="A concise introduction shown next to the main photograph…" />
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-4">
+                      <div className="flex items-end justify-between gap-4"><label className="admin-label" htmlFor="listing-description">Long description <span className="font-normal text-black/42">· beneath the gallery</span></label><span className="text-sm tabular-nums text-black/42">{car.overview.length.toLocaleString()} characters · about {LONG_DESCRIPTION_GUIDE.toLocaleString()} recommended</span></div>
+                      <textarea id="listing-description" value={car.overview} onChange={(event) => setField("overview", event.target.value)} className="admin-field mt-2 min-h-64 resize-y" placeholder="Write the complete vehicle story: significance, specification, history, condition and what makes this example special…" />
+                    </div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-highlights">Documented highlights <span className="font-normal text-black/42">· one per line</span></label><textarea id="listing-highlights" value={car.highlights} onChange={(event) => setField("highlights", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder={"Documented ownership history\nPeriod-correct drivetrain\nOlder restoration with records"} /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="condition-summary">Condition</label><textarea id="condition-summary" value={car.conditionSummary} onChange={(event) => setField("conditionSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="restoration-summary">Restoration history</label><textarea id="restoration-summary" value={car.restorationSummary} onChange={(event) => setField("restorationSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
