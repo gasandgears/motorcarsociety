@@ -324,6 +324,8 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   const [error, setError] = useState("");
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
+  const numericPrice = Number(car?.expectedPrice?.replace(/[$,\s]/g, ""));
+  const priceGuidance = car?.expectedPrice && Number.isFinite(numericPrice) ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(numericPrice) : car?.expectedPrice || "On request";
 
   useEffect(() => {
     let active = true;
@@ -367,7 +369,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
             <h1 className="mt-4 font-display text-5xl leading-[0.95] sm:text-6xl">{car.year}<span className="mt-3 block text-[0.55em] leading-tight">{car.make} {car.model}</span></h1>
             <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
             <p className="mt-7 text-lg leading-8 text-white/67">{car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</p>
-            <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{car.expectedPrice || "On request"}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
+            <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
             {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
             {userEmail ? <Button disabled={requesting || requested} onClick={() => void requestDossier()} className="mt-7 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{requesting ? "Sending request…" : requested ? "Dossier requested" : "Request Private Dossier"}{requested ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />}</Button> : <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111]">Sign in to request dossier<ArrowRight className="ml-2 size-5" /></a>}
             <p className="mt-4 text-center text-sm leading-6 text-white/42">Requests are reviewed personally. Source documents remain restricted to Motorcar Society staff.</p>
