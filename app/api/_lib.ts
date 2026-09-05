@@ -31,7 +31,7 @@ export async function getOrCreateAccount(request: Request): Promise<Account | nu
   if (!user) return null;
   const email = user.email.trim().toLowerCase();
   const now = Date.now();
-  const bootstrap = email === "deank@kirklanddigital.com"
+  const bootstrap = email === "deank@kirklanddigital.com" || email === "bbforcars@gmail.com"
     ? { role: "admin", tier: "leadership", status: "approved" }
     : email === "deankirkland@me.com"
       ? { role: "member", tier: "standard", status: "approved" }

@@ -1779,7 +1779,7 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
   const [registryCarId, setRegistryCarId] = useState<string | null>(initialCarId);
   const normalizedEmail = userEmail?.trim().toLowerCase() ?? null;
-  const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deank@kirklanddigital.com" ? "admin" : normalizedEmail === "deankirkland@me.com" ? "member" : "applicant";
+  const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deank@kirklanddigital.com" || normalizedEmail === "bbforcars@gmail.com" ? "admin" : normalizedEmail === "deankirkland@me.com" ? "member" : "applicant";
   const [account, setAccount] = useState<MemberAccount | null>(initialRole ? { userId: "", email: userEmail!, displayName: userEmail!.split("@")[0], phone: "", location: "", collectionNotes: "", role: initialRole, tier: initialRole === "admin" ? "leadership" : initialRole === "barnaby" ? "staff" : initialRole === "member" ? "standard" : "none", status: initialRole === "applicant" ? "pending" : "approved", createdAt: 0, updatedAt: 0 } : null);
   useEffect(() => {
     if (!userEmail) return;
