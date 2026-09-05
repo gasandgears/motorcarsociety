@@ -6,6 +6,8 @@ import { canManageCars, cleanText, forbidden, getAuthenticatedUser, getOrCreateA
 
 export const dynamic = "force-dynamic";
 
+const fileCategories = ["photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video"];
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
@@ -33,7 +35,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const received = Array.isArray(body.received)
       ? body.received
           .map((item) => cleanText(item, 24))
-          .filter((item) => ["photos", "title", "numbers", "history", "video"].includes(item))
+          .filter((item) => fileCategories.includes(item))
       : [];
     const updates = {
       year: cleanText(body.year, 12),

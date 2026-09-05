@@ -22,14 +22,22 @@ export type DeskTaskState = {
   snoozeCount: number;
 };
 
-const categories = ["photos", "title", "numbers", "history", "video"] as const;
+const categories = ["photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application"] as const;
 
 const categoryLabels: Record<(typeof categories)[number], string> = {
-  photos: "Collect exterior and interior photos",
-  title: "Collect the title or registration",
-  numbers: "Photograph the VIN, engine and chassis numbers",
-  history: "Collect service and ownership records",
-  video: "Record the walkaround video",
+  photos: "Collect the vehicle photography",
+  title: "Collect ownership or title evidence",
+  registration: "Collect current registration evidence",
+  bill_of_sale: "Collect the bill of sale or transfer record",
+  ownership_history: "Document the ownership history",
+  identity: "Complete vehicle identity verification",
+  drivetrain: "Complete engine and drivetrain verification",
+  restoration_history: "Collect the restoration history",
+  restoration_invoice: "Collect restoration invoices",
+  condition: "Complete the condition inspection",
+  photo_manifest: "Complete the photo documentation manifest",
+  provenance: "Complete the provenance narrative",
+  application: "Complete the Registry intake application",
 };
 
 export const validDeskTaskKeys = new Set([

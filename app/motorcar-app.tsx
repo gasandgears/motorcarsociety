@@ -727,6 +727,25 @@ type SavedFileDetail = {
   category: string;
 };
 
+function registryCategoryForFile(file: SavedFileDetail): FileCategory {
+  if (file.category !== "records") return file.category as FileCategory;
+  const prefix = file.filename.match(/^(\d{2})_/)?.[1];
+  return ({
+    "01": "title",
+    "02": "registration",
+    "03": "bill_of_sale",
+    "04": "ownership_history",
+    "05": "identity",
+    "06": "drivetrain",
+    "07": "restoration_history",
+    "08": "restoration_invoice",
+    "09": "condition",
+    "10": "photo_manifest",
+    "11": "provenance",
+    "12": "application",
+  } as Record<string, FileCategory>)[prefix || ""] || "records";
+}
+
 function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnView }: { setView: (view: View) => void; existingCarId: string | null; onCarCreated: (id: string) => void; signInPath: string; returnView: "desk" | "admin" }) {
   const returnLabel = returnView === "admin" ? "Admin Console" : "Barnaby’s Desk";
   const [step, setStep] = useState(1);
@@ -783,7 +802,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
           size: file.sizeBytes,
           type: file.contentType,
           previewUrl: file.contentType.startsWith("image/") ? `/api/files/${file.id}` : null,
-          category: (file.category || "records") as FileCategory,
+          category: registryCategoryForFile(file),
           status: "saved",
           sourceFile: null,
         })));
@@ -791,7 +810,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
           .split(",")
           .filter((category): category is Exclude<FileCategory, "records"> => fileChecklist.some((item) => item.id === category));
         const uploadedCategories = files
-          .map((file) => file.category)
+          .map(registryCategoryForFile)
           .filter((category): category is Exclude<FileCategory, "records"> => fileChecklist.some((item) => item.id === category));
         setReceived(Array.from(new Set([...recordedCategories, ...uploadedCategories])));
         setRecordCreated(true);
