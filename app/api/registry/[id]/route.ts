@@ -23,6 +23,10 @@ export async function GET(request: Request, context: RouteContext) {
       .from(carFiles)
       .where(and(eq(carFiles.carId, id), eq(carFiles.category, "photos")))
       .orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt));
+    const videos = await getDb().select({ id: carFiles.id, filename: carFiles.filename })
+      .from(carFiles)
+      .where(and(eq(carFiles.carId, id), eq(carFiles.category, "video")))
+      .orderBy(asc(carFiles.createdAt));
 
     return Response.json({
       car: {
@@ -52,6 +56,7 @@ export async function GET(request: Request, context: RouteContext) {
         status: car.status,
       },
       photos: photos.map((photo) => ({ ...photo, url: `/api/registry/${id}/photos/${photo.id}` })),
+      videos: videos.map((video) => ({ ...video, url: `/api/registry/${id}/photos/${video.id}` })),
       access: staff ? "staff" : member ? "member" : "public",
     });
   } catch (error) {

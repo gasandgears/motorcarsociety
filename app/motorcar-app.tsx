@@ -20,6 +20,7 @@ import {
   LockKeyhole,
   Menu,
   Phone,
+  Play,
   Search,
   ShieldCheck,
   Trash2,
@@ -391,6 +392,8 @@ type RegistryVehicleData = {
 function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: string; userEmail: string | null; signInPath: string; onBack: () => void }) {
   const [car, setCar] = useState<RegistryVehicleData | null>(null);
   const [photos, setPhotos] = useState<{ id: string; filename: string; url: string }[]>([]);
+  const [videos, setVideos] = useState<{ id: string; filename: string; url: string }[]>([]);
+  const [activeVideo, setActiveVideo] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -410,9 +413,9 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   useEffect(() => {
     let active = true;
     fetch(`/api/registry/${carId}`, { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; error?: string };
+      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; videos?: { id: string; filename: string; url: string }[]; error?: string };
       if (!response.ok || !payload.car) throw new Error(payload.error || "This vehicle could not be opened.");
-      if (active) { setCar(payload.car); setPhotos(payload.photos || []); }
+      if (active) { setCar(payload.car); setPhotos(payload.photos || []); setVideos(payload.videos || []); }
     }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "This vehicle could not be opened."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -447,6 +450,11 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
               <div className="absolute bottom-4 right-4 rounded-full bg-black/70 px-4 py-2 text-sm backdrop-blur">{photos.length ? `${activePhoto + 1} / ${photos.length}` : "Private imagery pending"}</div>
             </div>
             {photos.length > 1 && <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-thin">{photos.slice(0, 18).map((photo, index) => <button key={photo.id} onClick={() => setActivePhoto(index)} aria-label={`View photo ${index + 1}`} className={`h-20 w-28 shrink-0 overflow-hidden rounded-lg border ${index === activePhoto ? "border-[var(--gold-light)]" : "border-white/10"}`}><img src={photo.url} alt="" className="h-full w-full object-cover" /></button>)}</div>}
+            {videos.length > 0 && <div className="mt-5 border-t border-white/10 pt-5">
+              <p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--gold-light)]">Vehicle video</p>
+              <div className="mt-3 flex flex-wrap gap-3">{videos.map((video, index) => <button key={video.id} type="button" onClick={() => setActiveVideo(activeVideo === video.id ? null : video.id)} className={`group flex min-h-16 items-center gap-3 rounded-xl border px-4 text-left transition ${activeVideo === video.id ? "border-[var(--gold)] bg-[var(--gold)]/10" : "border-white/12 bg-white/[.035] hover:border-white/28"}`}><span className="grid size-10 place-items-center rounded-full bg-[var(--gold)] text-[#111]"><Play className="ml-0.5 size-5 fill-current" /></span><span><span className="block text-sm font-semibold">{videos.length === 1 ? "Play vehicle video" : `Play video ${index + 1}`}</span><span className="mt-1 block max-w-56 truncate text-xs text-white/45">{video.filename}</span></span></button>)}</div>
+              {activeVideo && <div className="mt-5 aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-black"><video key={activeVideo} controls autoPlay playsInline preload="metadata" className="h-full w-full object-contain"><source src={videos.find((video) => video.id === activeVideo)?.url} /></video></div>}
+            </div>}
           </section>
           <aside className="xl:sticky xl:top-32 xl:self-start">
             <p className="eyebrow">Motorcar Society Registry</p>
