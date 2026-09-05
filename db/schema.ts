@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const accounts = sqliteTable(
@@ -83,6 +84,7 @@ export const cars = sqliteTable(
     transmission: text("transmission").notNull().default(""),
     drivetrain: text("drivetrain").notNull().default(""),
     registryId: text("registry_id").notNull().default(""),
+    category: text("category").notNull().default("Uncategorized"),
     shortDescription: text("short_description").notNull().default(""),
     overview: text("overview").notNull().default(""),
     highlights: text("highlights").notNull().default(""),
@@ -96,6 +98,8 @@ export const cars = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [
+    uniqueIndex("idx_cars_registry_id").on(table.registryId).where(sql`${table.registryId} <> ''`),
+    index("idx_cars_category_status").on(table.category, table.status),
     index("idx_cars_updated_at").on(table.updatedAt),
     index("idx_cars_status_updated_at").on(table.status, table.updatedAt),
   ],

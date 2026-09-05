@@ -20,7 +20,9 @@ import {
   LockKeyhole,
   Menu,
   Phone,
+  Search,
   ShieldCheck,
+  Trash2,
   Upload,
   UserRoundCheck,
   X,
@@ -58,13 +60,7 @@ type MemberAccount = {
   updatedAt: number;
 };
 
-const inventory = [
-  { year: "1967", name: "Ferrari 275 GTB/4", detail: "Long-term West Coast ownership", status: "Private Match", code: "F" },
-  { year: "1931", name: "Duesenberg Model J", detail: "Coachwork history under review", status: "Member Preview", code: "D" },
-  { year: "1973", name: "Porsche 911 Carrera RS", detail: "Touring specification", status: "Available", code: "P" },
-];
-
-type RegistryCar = { id: string; year: string; make: string; model: string; detail: string; expectedPrice: string; visibility: string; status: string; updatedAt: number };
+type RegistryCar = { id: string; year: string; make: string; model: string; detail: string; expectedPrice: string; visibility: string; status: string; category: string; registryId: string; updatedAt: number };
 
 function Brand() {
   return (
@@ -156,22 +152,34 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
 
 function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpenCar: (id: string) => void }) {
   const [registryCars, setRegistryCars] = useState<RegistryCar[]>([]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
-    fetch("/api/registry", { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { cars?: RegistryCar[] };
-      if (active && response.ok) setRegistryCars(payload.cars || []);
-    }).catch(() => undefined);
+    const query = new URLSearchParams({ page: String(page) });
+    if (search.trim()) query.set("search", search.trim());
+    if (category !== "All") query.set("category", category);
+    fetch(`/api/registry?${query}`, { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { cars?: RegistryCar[]; categories?: string[]; pageCount?: number; total?: number };
+      if (active && response.ok) { setRegistryCars(payload.cars || []); setCategories(payload.categories || []); setPageCount(payload.pageCount || 1); setTotal(payload.total || 0); }
+    }).catch(() => undefined).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
-  const cards = registryCars.length ? registryCars.map((car) => ({
+  }, [search, category, page]);
+  const cards = registryCars.map((car) => ({
     id: car.id,
     year: car.year,
     name: `${car.make} ${car.model}`.trim() || "Confidential motorcar",
     detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : "Private details available"),
     status: car.status === "released" ? (car.visibility === "public" ? "Available" : "Member Preview") : "Internal Review",
+    category: car.category,
+    registryId: car.registryId,
     code: (car.make || car.model || "M").charAt(0).toUpperCase(),
-  })) : inventory.map((car, index) => ({ ...car, id: `curated-${index}` }));
+  }));
   return (
     <main>
       <section className="relative min-h-[42rem] overflow-hidden border-b border-white/10 lg:min-h-[46rem]">
@@ -250,14 +258,20 @@ function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpe
         <div className="mx-auto max-w-[90rem]">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div><p className="eyebrow">Recently entered</p><h2 className="mt-3 font-display text-4xl text-white sm:text-5xl">The Registry</h2></div>
-            <Button variant="ghost" className="w-fit px-0 text-base text-[var(--gold-light)] hover:bg-transparent hover:text-white">View all available cars <ArrowRight className="ml-2 size-5" /></Button>
+            <p className="text-sm text-white/48">{total} vehicle{total === 1 ? "" : "s"}</p>
           </div>
 
-          <div className="mt-9 grid gap-4 lg:grid-cols-3">
+          <div className="mt-8 grid gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-3 md:grid-cols-[minmax(0,1fr)_17rem]">
+            <label className="relative"><span className="sr-only">Search the Registry</span><Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-white/38" /><input value={search} onChange={(event) => { setLoading(true); setSearch(event.target.value); setPage(1); }} className="field min-h-12 pl-12" placeholder="Search year, make, model or Registry ID" /></label>
+            <label><span className="sr-only">Filter by category</span><NativeSelect value={category} onChange={(event) => { setLoading(true); setCategory(event.target.value); setPage(1); }} className="h-12 w-full border-white/15 bg-[#181a19] text-white"><NativeSelectOption value="All">All categories</NativeSelectOption>{categories.filter((item) => item !== "Uncategorized").map((item) => <NativeSelectOption key={item} value={item}>{item}</NativeSelectOption>)}<NativeSelectOption value="Uncategorized">Uncategorized</NativeSelectOption></NativeSelect></label>
+          </div>
+
+          {loading ? <div className="mt-9 grid gap-4 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-64 animate-pulse rounded-xl bg-white/5" />)}</div> : cards.length ? <div className="mt-9 grid gap-4 lg:grid-cols-3">
             {cards.map((car) => (
-              <button
+              <a
                 key={car.id}
-                onClick={() => !car.id.startsWith("curated-") && onOpenCar(car.id)}
+                href={`/registry/${car.id}`}
+                onClick={(event) => { event.preventDefault(); onOpenCar(car.id); }}
                 className="group min-h-64 overflow-hidden rounded-xl border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
                 <div className="flex h-28 items-center justify-between border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-6">
@@ -265,15 +279,17 @@ function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpe
                   <span className="rounded-full border border-white/14 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] text-white/60">{car.status}</span>
                 </div>
                 <div className="p-6">
-                  <p className="text-sm font-semibold tracking-[0.14em] text-[var(--gold-light)]">{car.year}</p>
+                  <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold tracking-[0.14em] text-[var(--gold-light)]">{car.year}</p><span className="text-xs text-white/35">{car.category}</span></div>
                   <h3 className="mt-2 font-display text-[1.8rem] leading-tight text-white">{car.name}</h3>
                   <div className="mt-5 flex items-center justify-between gap-4 text-[0.95rem] text-white/56">
                     <span>{car.detail}</span><ChevronRight className="size-5 shrink-0 transition group-hover:translate-x-1 group-hover:text-white" />
                   </div>
                 </div>
-              </button>
+                  <p className="mt-4 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-white/30">{car.registryId}</p>
+              </a>
             ))}
-          </div>
+          </div> : <div className="mt-9 rounded-xl border border-white/10 bg-white/[0.025] px-6 py-16 text-center"><h3 className="font-display text-3xl text-white">No vehicles found</h3><p className="mt-3 text-white/48">Try a different search or category.</p></div>}
+          {pageCount > 1 && <nav className="mt-8 flex items-center justify-center gap-4" aria-label="Registry pages"><Button variant="outline" disabled={page <= 1} onClick={() => { setLoading(true); setPage((current) => current - 1); window.scrollTo({ top: document.body.scrollHeight / 2, behavior: "smooth" }); }} className="border-white/16 bg-transparent text-white hover:bg-white hover:text-black"><ChevronLeft className="mr-2 size-4" />Previous</Button><span className="text-sm text-white/52">Page {page} of {pageCount}</span><Button variant="outline" disabled={page >= pageCount} onClick={() => { setLoading(true); setPage((current) => current + 1); window.scrollTo({ top: document.body.scrollHeight / 2, behavior: "smooth" }); }} className="border-white/16 bg-transparent text-white hover:bg-white hover:text-black">Next<ChevronRight className="ml-2 size-4" /></Button></nav>}
         </div>
       </section>
 
@@ -326,6 +342,7 @@ type RegistryVehicleData = {
   transmission: string;
   drivetrain: string;
   registryId: string;
+  category: string;
   shortDescription: string;
   overview: string;
   highlights: string;
@@ -397,7 +414,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
           <aside className="xl:sticky xl:top-32 xl:self-start">
             <p className="eyebrow">Motorcar Society Registry</p>
             <h1 className="mt-4 font-display text-5xl leading-[0.95] sm:text-6xl">{car.year}<span className="mt-3 block text-[0.55em] leading-tight">{car.make} {car.model}</span></h1>
-            <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
+            <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.category && car.category !== "Uncategorized" && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.category}</span>}{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
             <div className="mt-7 whitespace-pre-line text-lg leading-8 text-white/67">{car.shortDescription || car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</div>
             <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
             {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
@@ -844,6 +861,7 @@ type SavedCarDetail = {
   transmission: string;
   drivetrain: string;
   registryId: string;
+  category: string;
   shortDescription: string;
   overview: string;
   highlights: string;
@@ -916,6 +934,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
     transmission: "",
     drivetrain: "",
     registryId: "",
+    category: "Uncategorized",
     shortDescription: "",
     overview: "",
     highlights: "",
@@ -952,6 +971,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
           transmission: saved.transmission,
           drivetrain: saved.drivetrain,
           registryId: saved.registryId,
+          category: saved.category,
           shortDescription: saved.shortDescription,
           overview: saved.overview,
           highlights: saved.highlights,
@@ -1073,9 +1093,10 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(car),
       });
-      const data = await response.json() as { car?: { id: string }; error?: string };
+      const data = await response.json() as { car?: { id: string; registryId: string; category: string }; error?: string };
       if (!response.ok || !data.car) throw new Error(data.error || "The car file could not be created.");
       setSavedCarId(data.car.id);
+      setCar((current) => ({ ...current, registryId: data.car!.registryId, category: data.car!.category }));
       onCarCreated(data.car.id);
       setRecordCreated(true);
       setStep(2);
@@ -1281,7 +1302,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                     <div className="sm:col-span-2"><label className="admin-label" htmlFor="engine">Engine</label><input id="engine" value={car.engine} onChange={(event) => setField("engine", event.target.value)} className="admin-field mt-2" placeholder="302 cu in Boss V8" /></div>
                     <div><label className="admin-label" htmlFor="transmission">Transmission</label><input id="transmission" value={car.transmission} onChange={(event) => setField("transmission", event.target.value)} className="admin-field mt-2" placeholder="4-speed manual" /></div>
                     <div><label className="admin-label" htmlFor="drivetrain">Drivetrain</label><input id="drivetrain" value={car.drivetrain} onChange={(event) => setField("drivetrain", event.target.value)} className="admin-field mt-2" placeholder="Rear-wheel drive" /></div>
-                    <div className="sm:col-span-2"><label className="admin-label" htmlFor="registry-id">Registry ID</label><input id="registry-id" value={car.registryId} onChange={(event) => setField("registryId", event.target.value)} className="admin-field mt-2" placeholder="MCS-1970-BOSS302-002" /></div>
+                    <div className="sm:col-span-2"><label className="admin-label" htmlFor="registry-id">Permanent Registry ID</label><input id="registry-id" value={car.registryId || "Assigned automatically when the file is created"} readOnly className="admin-field mt-2 cursor-not-allowed bg-black/[0.035] font-mono text-sm opacity-70" /></div>
+                    <div className="sm:col-span-2"><label className="admin-label" htmlFor="registry-category">Registry category</label><NativeSelect id="registry-category" value={car.category} onChange={(event) => setField("category", event.target.value)} className="mt-2 h-[3.55rem] w-full border-black/17 bg-[#f8f6f1]"><NativeSelectOption value="Uncategorized">Uncategorized</NativeSelectOption><NativeSelectOption value="American Performance">American Performance</NativeSelectOption><NativeSelectOption value="European Sports & GT">European Sports &amp; GT</NativeSelectOption><NativeSelectOption value="British Sports Cars">British Sports Cars</NativeSelectOption><NativeSelectOption value="Prewar Classics">Prewar Classics</NativeSelectOption><NativeSelectOption value="Competition Cars">Competition Cars</NativeSelectOption><NativeSelectOption value="Modern Collectibles">Modern Collectibles</NativeSelectOption><NativeSelectOption value="Coachbuilt & Significant">Coachbuilt &amp; Significant</NativeSelectOption><NativeSelectOption value="Other">Other</NativeSelectOption></NativeSelect></div>
                     <div className="sm:col-span-2 lg:col-span-4">
                       <div className="flex items-end justify-between gap-4"><label className="admin-label" htmlFor="listing-short-description">Short description <span className="font-normal text-black/42">· beside the main photo</span></label><span className={`text-sm tabular-nums ${car.shortDescription.length >= SHORT_DESCRIPTION_LIMIT ? "font-semibold text-[#8f3329]" : "text-black/42"}`}>{car.shortDescription.length} / {SHORT_DESCRIPTION_LIMIT}</span></div>
                       <textarea id="listing-short-description" value={car.shortDescription} maxLength={SHORT_DESCRIPTION_LIMIT} onChange={(event) => setField("shortDescription", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder="A concise introduction shown next to the main photograph…" />
@@ -1664,6 +1686,19 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
     finally { setSavingId(null); }
   };
 
+  const deleteCar = async (car: RegistryCar) => {
+    const name = [car.year, car.make, car.model].filter(Boolean).join(" ");
+    if (!window.confirm(`Permanently delete ${name} (${car.registryId}) and every uploaded file? This cannot be undone.`)) return;
+    setSavingId(car.id); setError("");
+    try {
+      const response = await fetch(`/api/admin/cars/${car.id}`, { method: "DELETE" });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "The car could not be deleted.");
+      setCars((current) => current.filter((item) => item.id !== car.id));
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "The car could not be deleted."); }
+    finally { setSavingId(null); }
+  };
+
   const updateDossierRequest = async (id: string, status: string) => {
     setSavingId(id); setError("");
     try {
@@ -1688,7 +1723,7 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
         <ContactImport onImported={() => undefined} />
         <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Registry releases</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{cars.length} car files</span></div>
-          {cars.length === 0 ? <p className="mt-7 text-black/50">Create the first car file when an owner is ready.</p> : <div className="mt-6 space-y-3">{cars.map((car) => <article key={car.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto] lg:items-end"><div><p className="font-display text-2xl">{car.year} {car.make} {car.model}</p><p className="mt-1 text-sm text-black/48">{car.detail || "Location not entered"}</p></div><div><label className="admin-label">Audience</label><NativeSelect value={car.visibility} onChange={(event) => updateCarLocal(car.id, "visibility", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="private">Private match</NativeSelectOption><NativeSelectOption value="members">Members</NativeSelectOption><NativeSelectOption value="public">Public</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Status</label><NativeSelect value={car.status} onChange={(event) => updateCarLocal(car.id, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="intake">Intake</NativeSelectOption><NativeSelectOption value="review">Review</NativeSelectOption><NativeSelectOption value="ready">Ready</NativeSelectOption><NativeSelectOption value="released">Released</NativeSelectOption></NativeSelect></div><Button variant="outline" onClick={() => onOpenCar(car.id)} className="h-11 border-black/15">Open file</Button><Button disabled={savingId === car.id} onClick={() => releaseCar(car)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === car.id ? "Saving…" : "Save release"}</Button></article>)}</div>}
+          {cars.length === 0 ? <p className="mt-7 text-black/50">Create the first car file when an owner is ready.</p> : <div className="mt-6 space-y-3">{cars.map((car) => <article key={car.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 xl:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto_auto] xl:items-end"><div><p className="font-display text-2xl">{car.year} {car.make} {car.model}</p><p className="mt-1 text-sm text-black/48">{car.registryId} · {car.category || "Uncategorized"}</p></div><div><label className="admin-label">Audience</label><NativeSelect value={car.visibility} onChange={(event) => updateCarLocal(car.id, "visibility", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="private">Private match</NativeSelectOption><NativeSelectOption value="members">Members</NativeSelectOption><NativeSelectOption value="public">Public</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Status</label><NativeSelect value={car.status} onChange={(event) => updateCarLocal(car.id, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="intake">Intake</NativeSelectOption><NativeSelectOption value="review">Review</NativeSelectOption><NativeSelectOption value="ready">Ready</NativeSelectOption><NativeSelectOption value="released">Released</NativeSelectOption></NativeSelect></div><Button variant="outline" onClick={() => onOpenCar(car.id)} className="h-11 border-black/15">Open file</Button><Button disabled={savingId === car.id} onClick={() => releaseCar(car)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === car.id ? "Saving…" : "Save release"}</Button><Button variant="outline" disabled={savingId === car.id} onClick={() => void deleteCar(car)} className="h-11 border-[#8f3329]/25 text-[#8f3329] hover:bg-[#8f3329] hover:text-white"><Trash2 className="mr-2 size-4" />Delete</Button></article>)}</div>}
         </section>
         <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Accounts</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{members.filter((member) => member.status === "pending").length} pending</span></div>
@@ -1699,10 +1734,10 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
   );
 }
 
-export default function MotorcarApp({ signInPath, signOutPath, userEmail }: { signInPath: string; signOutPath: string; userEmail: string | null }) {
-  const [view, setView] = useState<View>("registry");
+export default function MotorcarApp({ signInPath, signOutPath, userEmail, initialCarId = null }: { signInPath: string; signOutPath: string; userEmail: string | null; initialCarId?: string | null }) {
+  const [view, setView] = useState<View>(initialCarId ? "vehicle" : "registry");
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
-  const [registryCarId, setRegistryCarId] = useState<string | null>(null);
+  const [registryCarId, setRegistryCarId] = useState<string | null>(initialCarId);
   const normalizedEmail = userEmail?.trim().toLowerCase() ?? null;
   const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deank@kirklanddigital.com" ? "admin" : normalizedEmail === "deankirkland@me.com" ? "member" : "applicant";
   const [account, setAccount] = useState<MemberAccount | null>(initialRole ? { userId: "", email: userEmail!, displayName: userEmail!.split("@")[0], phone: "", location: "", collectionNotes: "", role: initialRole, tier: initialRole === "admin" ? "leadership" : initialRole === "barnaby" ? "staff" : initialRole === "member" ? "standard" : "none", status: initialRole === "applicant" ? "pending" : "approved", createdAt: 0, updatedAt: 0 } : null);
@@ -1716,18 +1751,29 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail }: { si
     }).catch(() => undefined);
     return () => { active = false; };
   }, [userEmail]);
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = window.location.pathname.match(/^\/registry\/([^/]+)$/);
+      if (match) { setRegistryCarId(decodeURIComponent(match[1])); setView("vehicle"); }
+      else { setRegistryCarId(null); setView("registry"); }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+  const openVehiclePage = (id: string) => { setRegistryCarId(id); setView("vehicle"); window.history.pushState({}, "", `/registry/${id}`); window.scrollTo({ top: 0 }); };
+  const returnToRegistry = () => { setRegistryCarId(null); setView("registry"); window.history.pushState({}, "", "/"); window.scrollTo({ top: 0 }); };
   const canAccessDesk = account?.role === "barnaby" && account.status === "approved";
   const canAccessAdmin = account?.role === "admin" && account.status === "approved";
   const canManageCars = canAccessDesk || canAccessAdmin;
   return (
     <div className="min-h-screen bg-[#101211]">
-      <Header view={view} setView={setView} canAccessDesk={canAccessDesk} canAccessAdmin={canAccessAdmin} userEmail={userEmail} signInPath={signInPath} />
-      {view === "registry" && <Registry setView={setView} onOpenCar={(id) => { setRegistryCarId(id); setView("vehicle"); window.scrollTo({ top: 0 }); }} />}
-      {view === "vehicle" && registryCarId && <RegistryVehicle carId={registryCarId} userEmail={userEmail} signInPath={signInPath} onBack={() => setView("registry")} />}
+      <Header view={view} setView={(next) => { if (view === "vehicle") window.history.pushState({}, "", "/"); setView(next); }} canAccessDesk={canAccessDesk} canAccessAdmin={canAccessAdmin} userEmail={userEmail} signInPath={signInPath} />
+      {view === "registry" && <Registry setView={setView} onOpenCar={openVehiclePage} />}
+      {view === "vehicle" && registryCarId && <RegistryVehicle carId={registryCarId} userEmail={userEmail} signInPath={signInPath} onBack={returnToRegistry} />}
       {view === "wanted" && <WantedList userEmail={userEmail} signInPath={signInPath} />}
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
       {view === "admin" && canAccessAdmin && <AdminConsole onOpenCar={(id) => { setActiveCarId(id || null); setView("intake"); }} />}
-      {view === "intake" && canManageCars && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} onPreview={(id) => { setRegistryCarId(id); setView("vehicle"); window.scrollTo({ top: 0 }); }} returnView={canAccessAdmin ? "admin" : "desk"} />}
+      {view === "intake" && canManageCars && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} onPreview={openVehiclePage} returnView={canAccessAdmin ? "admin" : "desk"} />}
       {view === "membership" && <Membership key={account?.updatedAt || account?.userId || "anonymous"} account={account} setAccount={setAccount} signInPath={signInPath} signOutPath={signOutPath} setView={setView} />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">

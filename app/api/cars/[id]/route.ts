@@ -55,7 +55,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       engine: cleanText(body.engine, 160),
       transmission: cleanText(body.transmission, 160),
       drivetrain: cleanText(body.drivetrain, 120),
-      registryId: cleanText(body.registryId, 120),
+      category: cleanText(body.category, 80) || "Uncategorized",
       shortDescription: cleanText(body.shortDescription, 449),
       overview: cleanText(body.overview, 50000),
       highlights: cleanText(body.highlights, 8000),

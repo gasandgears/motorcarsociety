@@ -6,6 +6,11 @@ import { canManageCars, cleanText, forbidden, getAuthenticatedUser, getOrCreateA
 
 export const dynamic = "force-dynamic";
 
+function createRegistryId(year: string) {
+  const yearCode = year.replace(/[^0-9]/g, "").slice(0, 4) || "UNKN";
+  return `MCS-${yearCode}-${crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+}
+
 export async function GET(request: Request) {
   if (!getAuthenticatedUser(request)) return unauthorized();
   if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
@@ -55,7 +60,8 @@ export async function POST(request: Request) {
       engine: "",
       transmission: "",
       drivetrain: "",
-      registryId: "",
+      registryId: createRegistryId(year),
+      category: "Uncategorized",
       shortDescription: "",
       overview: "",
       highlights: "",
