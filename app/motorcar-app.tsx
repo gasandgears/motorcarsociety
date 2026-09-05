@@ -8,6 +8,7 @@ import {
   Camera,
   CarFront,
   Check,
+  ChevronLeft,
   ChevronRight,
   ClipboardCheck,
   Clock3,
@@ -345,6 +346,8 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
     ["Body style", car.bodyStyle], ["Engine", car.engine], ["Transmission", car.transmission],
     ["Drivetrain", car.drivetrain], ["Registry ID", car.registryId],
   ].filter(([, value]) => value) : [];
+  const showPreviousPhoto = () => setActivePhoto((current) => (current - 1 + photos.length) % photos.length);
+  const showNextPhoto = () => setActivePhoto((current) => (current + 1) % photos.length);
 
   useEffect(() => {
     let active = true;
@@ -379,6 +382,10 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
           <section>
             <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-[#181a19]">
               {photos[activePhoto] ? <img src={photos[activePhoto].url} alt={`${car.year} ${car.make} ${car.model}`} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Camera className="size-12 text-[var(--gold-light)]" /></div>}
+              {photos.length > 1 && <>
+                <button type="button" onClick={showPreviousPhoto} aria-label="Show previous photo" className="absolute left-3 top-1/2 grid size-12 -translate-y-1/2 place-items-center rounded-full border border-white/30 bg-black/65 text-white shadow-lg backdrop-blur-sm transition hover:scale-105 hover:bg-black/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)] sm:left-5 sm:size-14"><ChevronLeft className="size-7 sm:size-8" /></button>
+                <button type="button" onClick={showNextPhoto} aria-label="Show next photo" className="absolute right-3 top-1/2 grid size-12 -translate-y-1/2 place-items-center rounded-full border border-white/30 bg-black/65 text-white shadow-lg backdrop-blur-sm transition hover:scale-105 hover:bg-black/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)] sm:right-5 sm:size-14"><ChevronRight className="size-7 sm:size-8" /></button>
+              </>}
               <div className="absolute bottom-4 right-4 rounded-full bg-black/70 px-4 py-2 text-sm backdrop-blur">{photos.length ? `${activePhoto + 1} / ${photos.length}` : "Private imagery pending"}</div>
             </div>
             {photos.length > 1 && <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-thin">{photos.slice(0, 18).map((photo, index) => <button key={photo.id} onClick={() => setActivePhoto(index)} aria-label={`View photo ${index + 1}`} className={`h-20 w-28 shrink-0 overflow-hidden rounded-lg border ${index === activePhoto ? "border-[var(--gold-light)]" : "border-white/10"}`}><img src={photo.url} alt="" className="h-full w-full object-cover" /></button>)}</div>}
@@ -397,7 +404,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
         <div className="mt-16 border-t border-white/10 pt-12 lg:mt-20 lg:pt-16">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.65fr)] lg:gap-20">
             <div className="space-y-14">
-              {(car.overview || car.notes) && <section aria-labelledby="vehicle-overview"><p className="eyebrow">The motorcar</p><h2 id="vehicle-overview" className="mt-3 font-display text-4xl sm:text-5xl">Overview</h2><p className="mt-6 max-w-4xl whitespace-pre-line text-lg leading-8 text-white/68">{car.overview || car.notes}</p></section>}
+              {(car.overview || car.notes) && <section aria-labelledby="vehicle-description"><p className="eyebrow">The motorcar</p><h2 id="vehicle-description" className="mt-3 font-display text-4xl sm:text-5xl">Description</h2><p className="mt-6 max-w-4xl whitespace-pre-line text-lg leading-8 text-white/68">{car.overview || car.notes}</p></section>}
               {highlights.length > 0 && <section aria-labelledby="vehicle-highlights"><p className="eyebrow">At a glance</p><h2 id="vehicle-highlights" className="mt-3 font-display text-4xl">Documented highlights</h2><ul className="mt-7 grid gap-x-8 gap-y-4 sm:grid-cols-2">{highlights.map((item) => <li key={item} className="flex gap-3 border-t border-white/10 pt-4 text-base leading-7 text-white/72"><Check className="mt-1 size-4 shrink-0 text-[var(--gold-light)]" />{item}</li>)}</ul></section>}
               {car.conditionSummary && <section aria-labelledby="vehicle-condition"><p className="eyebrow">Inspection record</p><h2 id="vehicle-condition" className="mt-3 font-display text-4xl">Condition</h2><p className="mt-6 whitespace-pre-line text-lg leading-8 text-white/68">{car.conditionSummary}</p></section>}
               {car.restorationSummary && <section aria-labelledby="vehicle-restoration"><p className="eyebrow">Care &amp; preservation</p><h2 id="vehicle-restoration" className="mt-3 font-display text-4xl">Restoration history</h2><p className="mt-6 whitespace-pre-line text-lg leading-8 text-white/68">{car.restorationSummary}</p></section>}
@@ -1240,7 +1247,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
                     <div><label className="admin-label" htmlFor="transmission">Transmission</label><input id="transmission" value={car.transmission} onChange={(event) => setField("transmission", event.target.value)} className="admin-field mt-2" placeholder="4-speed manual" /></div>
                     <div><label className="admin-label" htmlFor="drivetrain">Drivetrain</label><input id="drivetrain" value={car.drivetrain} onChange={(event) => setField("drivetrain", event.target.value)} className="admin-field mt-2" placeholder="Rear-wheel drive" /></div>
                     <div className="sm:col-span-2"><label className="admin-label" htmlFor="registry-id">Registry ID</label><input id="registry-id" value={car.registryId} onChange={(event) => setField("registryId", event.target.value)} className="admin-field mt-2" placeholder="MCS-1970-BOSS302-002" /></div>
-                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-overview">Overview</label><textarea id="listing-overview" value={car.overview} onChange={(event) => setField("overview", event.target.value)} className="admin-field mt-2 min-h-36 resize-y" placeholder="A concise, factual introduction to the motorcar…" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-description">Description <span className="font-normal text-black/42">· member-facing vehicle write-up</span></label><textarea id="listing-description" value={car.overview} onChange={(event) => setField("overview", event.target.value)} className="admin-field mt-2 min-h-56 resize-y" placeholder="Write the complete vehicle story members will see: significance, specification, history, condition and what makes this example special…" /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-highlights">Documented highlights <span className="font-normal text-black/42">· one per line</span></label><textarea id="listing-highlights" value={car.highlights} onChange={(event) => setField("highlights", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder={"Documented ownership history\nPeriod-correct drivetrain\nOlder restoration with records"} /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="condition-summary">Condition</label><textarea id="condition-summary" value={car.conditionSummary} onChange={(event) => setField("conditionSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
                     <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="restoration-summary">Restoration history</label><textarea id="restoration-summary" value={car.restorationSummary} onChange={(event) => setField("restorationSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
