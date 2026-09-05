@@ -1,7 +1,8 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { extractText } from "unpdf";
 
 import { getDb } from "@/db";
-import { carFiles } from "@/db/schema";
+import { carFiles, carRequirements } from "@/db/schema";
 import { canManageCars, carExists, forbidden, getAuthenticatedUser, getBucket, getOrCreateAccount, safeFilename, serverError, unauthorized } from "../../../_lib";
 
 export const dynamic = "force-dynamic";
@@ -41,8 +42,9 @@ export async function POST(request: Request, context: RouteContext) {
     const category = ["photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video", "records"].includes(suppliedCategory) ? suppliedCategory : "records";
     const fileId = crypto.randomUUID();
     const storageKey = `cars/${carId}/${fileId}`;
+    const bytes = new Uint8Array(await request.arrayBuffer());
 
-    await getBucket().put(storageKey, request.body, {
+    await getBucket().put(storageKey, new Blob([bytes]).stream(), {
       httpMetadata: { contentType },
       customMetadata: { carId, filename: encodeURIComponent(filename), uploadedBy: user.id },
     });
@@ -63,7 +65,15 @@ export async function POST(request: Request, context: RouteContext) {
 
     try {
       await getDb().insert(carFiles).values(file);
-      return Response.json({ file }, { status: 201 });
+      let extractedText = "";
+      if (contentType === "application/pdf" && !["photos", "video", "records"].includes(category)) {
+        try {
+          const extracted = await extractText(bytes, { mergePages: true });
+          extractedText = extracted.text.trim().slice(0, 20000);
+          if (extractedText) await getDb().insert(carRequirements).values({ id: crypto.randomUUID(), carId, requirementKey: category, entryText: extractedText, sourceFileId: fileId, completionMethod: "document", updatedAt: Date.now() }).onConflictDoUpdate({ target: [carRequirements.carId, carRequirements.requirementKey], set: { entryText: extractedText, sourceFileId: fileId, completionMethod: "document", updatedAt: Date.now() } });
+        } catch (extractionError) { console.error("PDF extraction failed", extractionError); }
+      }
+      return Response.json({ file, extractedText }, { status: 201 });
     } catch (error) {
       await getBucket().delete(storageKey);
       throw error;

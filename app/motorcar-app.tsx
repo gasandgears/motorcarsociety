@@ -970,6 +970,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const [visibility, setVisibility] = useState("private");
   const [received, setReceived] = useState<string[]>([]);
   const [uploads, setUploads] = useState<IntakeUpload[]>([]);
+  const [requirementNotes, setRequirementNotes] = useState<Record<string, string>>({});
+  const [savingRequirement, setSavingRequirement] = useState<string | null>(null);
   const [savedCarId, setSavedCarId] = useState<string | null>(existingCarId);
   const [saving, setSaving] = useState(false);
   const [loadingCar, setLoadingCar] = useState(Boolean(existingCarId));
@@ -1060,6 +1062,11 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
           .map(registryCategoryForFile)
           .filter((category): category is Exclude<FileCategory, "records"> => fileChecklist.some((item) => item.id === category));
         setReceived(Array.from(new Set([...recordedCategories, ...uploadedCategories])));
+        const requirementsResponse = await fetch(`/api/cars/${existingCarId}/requirements`, { cache: "no-store" });
+        if (requirementsResponse.ok) {
+          const requirementsData = await requirementsResponse.json() as { entries?: { requirementKey: string; entryText: string }[] };
+          setRequirementNotes(Object.fromEntries((requirementsData.entries || []).map((entry) => [entry.requirementKey, entry.entryText])));
+        }
         setRecordCreated(true);
         setStep(2);
       })
@@ -1182,7 +1189,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
         },
         body: item.sourceFile,
       });
-      const data = await response.json() as { file?: { id: string; category: string }; error?: string };
+      const data = await response.json() as { file?: { id: string; category: string }; extractedText?: string; error?: string };
       if (!response.ok || !data.file) throw new Error(data.error || `${item.name} could not be uploaded.`);
       if (item.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(item.previewUrl);
       setUploads((current) => current.map((file) => file.id === item.id ? {
@@ -1195,10 +1202,24 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
       if (data.file.category !== "records") {
         setReceived((current) => current.includes(data.file!.category) ? current : [...current, data.file!.category]);
       }
+      if (data.extractedText) setRequirementNotes((current) => ({ ...current, [item.category]: data.extractedText! }));
     } catch (error) {
       setUploads((current) => current.map((file) => file.id === item.id ? { ...file, status: "error" } : file));
       setSaveError(error instanceof Error ? error.message : `${item.name} could not be uploaded.`);
     }
+  };
+
+  const saveRequirementEntry = async (requirementKey: string) => {
+    if (!savedCarId) return;
+    setSavingRequirement(requirementKey);
+    try {
+      const response = await fetch(`/api/cars/${savedCarId}/requirements`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ requirementKey, entryText: requirementNotes[requirementKey] || "" }) });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "The checklist entry could not be saved.");
+      if ((requirementNotes[requirementKey] || "").trim()) setReceived((current) => current.includes(requirementKey) ? current : [...current, requirementKey]);
+      setSaveNotice("Checklist entry saved");
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "The checklist entry could not be saved."); }
+    finally { setSavingRequirement(null); }
   };
 
   const handleUploads = async (files: FileList | null, category: FileCategory) => {
@@ -1390,7 +1411,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                 <p className="mt-3 text-lg leading-8 text-black/54">Upload each item in its proper section. A phone photo works for paperwork, or you can choose a PDF. Every upload saves immediately.</p>
                 <div className="mt-8 space-y-3">
                   {fileChecklist.map((item) => {
-                    const done = received.includes(item.id);
+                    const done = received.includes(item.id) || Boolean(requirementNotes[item.id]?.trim());
                     const Icon = item.icon;
                     const savedCount = uploads.filter((file) => file.category === item.id && file.status === "saved").length;
                     return (
@@ -1435,6 +1456,11 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             </button>
                           </div>
                         </div>
+                        {item.id !== "photos" && item.id !== "video" && <div className="mt-4 border-t border-black/8 pt-4">
+                          <div className="flex items-center justify-between gap-3"><label className="admin-label" htmlFor={`requirement-${item.id}`}>Manual entry or document details</label>{requirementNotes[item.id] && <span className="text-xs font-semibold text-[#60765c]">Editable document text</span>}</div>
+                          <textarea id={`requirement-${item.id}`} value={requirementNotes[item.id] || ""} onChange={(event) => setRequirementNotes((current) => ({ ...current, [item.id]: event.target.value }))} onBlur={() => void saveRequirementEntry(item.id)} className="admin-field mt-2 min-h-28 resize-y" placeholder={`Enter ${item.label.toLowerCase()} manually, or upload a text-based PDF to prefill this field.`} />
+                          <p className="mt-2 text-xs leading-5 text-black/42">{savingRequirement === item.id ? "Saving…" : "Changes save when you leave this field. Uploaded PDFs are read automatically; review extracted details before release."}</p>
+                        </div>}
                       </article>
                     );
                   })}

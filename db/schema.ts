@@ -145,6 +145,20 @@ export const carFiles = pgTable(
   ],
 );
 
+export const carRequirements = pgTable(
+  "car_requirements",
+  {
+    id: text("id").primaryKey(),
+    carId: text("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
+    requirementKey: text("requirement_key").notNull(),
+    entryText: text("entry_text").notNull().default(""),
+    sourceFileId: text("source_file_id"),
+    completionMethod: text("completion_method").notNull().default("manual"),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (table) => [uniqueIndex("idx_car_requirements_car_key").on(table.carId, table.requirementKey)],
+);
+
 export const carTaskStates = pgTable(
   "car_task_states",
   {
