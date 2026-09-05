@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       ...car,
       currentAction: buildDeskSummary(car, statesByCar.get(car.id) || [], now),
     })).sort((left, right) => {
-      const rank = { urgent: 0, warning: 1, ready: 2 };
+      const rank: Record<string, number> = { urgent: 0, warning: 1, ready: 2 };
       const toneDifference = rank[left.currentAction.tone] - rank[right.currentAction.tone];
       return toneDifference || left.currentAction.dueAt - right.currentAction.dueAt;
     });

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { bigint, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
-export const accounts = sqliteTable(
+export const accounts = pgTable(
   "accounts",
   {
     userId: text("user_id").primaryKey(),
@@ -13,8 +13,8 @@ export const accounts = sqliteTable(
     role: text("role").notNull().default("applicant"),
     tier: text("tier").notNull().default("none"),
     status: text("status").notNull().default("pending"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (table) => [
     uniqueIndex("idx_accounts_email").on(table.email),
@@ -22,7 +22,7 @@ export const accounts = sqliteTable(
   ],
 );
 
-export const wantedProfiles = sqliteTable(
+export const wantedProfiles = pgTable(
   "wanted_profiles",
   {
     id: text("id").primaryKey(),
@@ -34,13 +34,13 @@ export const wantedProfiles = sqliteTable(
     acquisitionHigh: text("acquisition_high").notNull().default(""),
     era: text("era").notNull().default("postwar"),
     primaryInterest: text("primary_interest").notNull().default("important"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (table) => [uniqueIndex("idx_wanted_profiles_user_id").on(table.userId)],
 );
 
-export const wantedVehicles = sqliteTable(
+export const wantedVehicles = pgTable(
   "wanted_vehicles",
   {
     id: text("id").primaryKey(),
@@ -53,13 +53,13 @@ export const wantedVehicles = sqliteTable(
     acquisitionHigh: text("acquisition_high").notNull().default(""),
     notes: text("notes").notNull().default(""),
     status: text("status").notNull().default("active"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (table) => [index("idx_wanted_vehicles_user").on(table.userId, table.status), index("idx_wanted_vehicles_make_model").on(table.make, table.model)],
 );
 
-export const mailingContacts = sqliteTable(
+export const mailingContacts = pgTable(
   "mailing_contacts",
   {
     id: text("id").primaryKey(),
@@ -69,9 +69,9 @@ export const mailingContacts = sqliteTable(
     source: text("source").notNull().default("client list"),
     permission: text("permission").notNull().default("needs_review"),
     inviteStatus: text("invite_status").notNull().default("not_sent"),
-    unsubscribedAt: integer("unsubscribed_at"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    unsubscribedAt: bigint("unsubscribed_at", { mode: "number" }),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (table) => [
     uniqueIndex("idx_mailing_contacts_email").on(table.email),
@@ -79,7 +79,7 @@ export const mailingContacts = sqliteTable(
   ],
 );
 
-export const cars = sqliteTable(
+export const cars = pgTable(
   "cars",
   {
     id: text("id").primaryKey(),
@@ -113,8 +113,8 @@ export const cars = sqliteTable(
     receivedCategories: text("received_categories").notNull().default(""),
     visibility: text("visibility").notNull(),
     status: text("status").notNull(),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (table) => [
     uniqueIndex("idx_cars_registry_id").on(table.registryId).where(sql`${table.registryId} <> ''`),
@@ -124,7 +124,7 @@ export const cars = sqliteTable(
   ],
 );
 
-export const carFiles = sqliteTable(
+export const carFiles = pgTable(
   "car_files",
   {
     id: text("id").primaryKey(),
@@ -132,12 +132,12 @@ export const carFiles = sqliteTable(
     storageKey: text("storage_key").notNull(),
     filename: text("filename").notNull(),
     contentType: text("content_type").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     category: text("category").notNull(),
     uploadedBy: text("uploaded_by").notNull(),
     uploadedByEmail: text("uploaded_by_email").notNull(),
-    sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: integer("created_at").notNull(),
+    sortOrder: bigint("sort_order", { mode: "number" }).notNull().default(0),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
   },
   (table) => [
     index("idx_car_files_car_id").on(table.carId),
@@ -145,17 +145,17 @@ export const carFiles = sqliteTable(
   ],
 );
 
-export const carTaskStates = sqliteTable(
+export const carTaskStates = pgTable(
   "car_task_states",
   {
     id: text("id").primaryKey(),
     carId: text("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
     taskKey: text("task_key").notNull(),
     status: text("status").notNull(),
-    dueAt: integer("due_at").notNull(),
+    dueAt: bigint("due_at", { mode: "number" }).notNull(),
     snoozeCount: integer("snooze_count").notNull().default(0),
-    completedAt: integer("completed_at"),
-    updatedAt: integer("updated_at").notNull(),
+    completedAt: bigint("completed_at", { mode: "number" }),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (table) => [
     uniqueIndex("idx_car_task_states_car_task").on(table.carId, table.taskKey),
@@ -163,7 +163,7 @@ export const carTaskStates = sqliteTable(
   ],
 );
 
-export const dossierRequests = sqliteTable(
+export const dossierRequests = pgTable(
   "dossier_requests",
   {
     id: text("id").primaryKey(),
@@ -171,8 +171,8 @@ export const dossierRequests = sqliteTable(
     requesterUserId: text("requester_user_id").notNull().references(() => accounts.userId, { onDelete: "cascade" }),
     requesterEmail: text("requester_email").notNull(),
     status: text("status").notNull().default("new"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
   },
   (table) => [
     uniqueIndex("idx_dossier_requests_car_user").on(table.carId, table.requesterUserId),
