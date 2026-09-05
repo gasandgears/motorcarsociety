@@ -12,8 +12,8 @@ function friendlyError(message: string) {
   return message;
 }
 
-export default function SignInForm({ returnTo }: { returnTo: string }) {
-  const [mode, setMode] = useState<Mode>("signin");
+export default function SignInForm({ returnTo, initialMode = "signin" }: { returnTo: string; initialMode?: Mode }) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

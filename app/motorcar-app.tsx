@@ -42,6 +42,7 @@ import { Progress } from "@/components/ui/progress";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 type View = "registry" | "vehicle" | "wanted" | "desk" | "intake" | "membership" | "admin";
+type AdminSection = "dossier-requests" | "contacts" | "wanted-list" | "registry-releases" | "accounts";
 
 const SHORT_DESCRIPTION_LIMIT = 449;
 const LONG_DESCRIPTION_GUIDE = 5500;
@@ -86,6 +87,8 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
   ];
 
   const selectView = (next: View) => {
+    if (next === "admin") window.history.pushState({}, "", "/admin/dossier-requests");
+    else if (window.location.pathname.startsWith("/admin/")) window.history.pushState({}, "", "/");
     setView(next);
     setMobileOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -147,6 +150,40 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
         </div>
       )}
     </header>
+  );
+}
+
+function Landing({ signInPath }: { signInPath: string }) {
+  return (
+    <main className="bg-[#101211] text-white">
+      <section className="relative min-h-[calc(100vh-5.25rem)] overflow-hidden border-b border-white/10">
+        <img src="/motorcar-hero.png" alt="A significant competition motorcar in a private collection" className="absolute inset-0 h-full w-full object-cover object-[62%_center]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,9,9,.98)_0%,rgba(8,9,9,.9)_38%,rgba(8,9,9,.3)_72%,rgba(8,9,9,.18)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(8,9,9,.92)_0%,transparent_42%)]" />
+        <div className="relative mx-auto flex min-h-[calc(100vh-5.25rem)] max-w-[90rem] items-center px-5 py-20 sm:px-8 lg:px-12">
+          <div className="max-w-[47rem]">
+            <p className="eyebrow">A private society for meaningful motorcars</p>
+            <h1 className="mt-6 font-display text-[clamp(3.5rem,7.6vw,7.5rem)] leading-[.88] tracking-[-.035em]">The right car.<span className="mt-2 block text-[.62em] text-white/82">The right next owner.</span></h1>
+            <p className="mt-8 max-w-[42rem] text-lg leading-8 text-white/72 sm:text-xl">Motorcar Society was created for collectors who value provenance, discretion and lasting stewardship—not crowded marketplaces. Every Registry car is presented with context, documentation and a direct path to a thoughtful conversation.</p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <a href={`${signInPath}${signInPath.includes("?") ? "&" : "?"}mode=register`} className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--gold)] px-7 font-semibold text-[#111] transition hover:bg-[var(--gold-light)]">Request membership<ArrowRight className="ml-2 size-5" /></a>
+              <a href={signInPath} className="inline-flex min-h-14 items-center justify-center rounded-lg border border-white/22 px-7 font-semibold transition hover:bg-white hover:text-black">Member sign in</a>
+            </div>
+            <div className="mt-12 grid max-w-[42rem] gap-5 border-t border-white/15 pt-7 sm:grid-cols-3">
+              <div><p className="font-display text-2xl">Curated</p><p className="mt-1 text-sm leading-6 text-white/48">Cars selected for significance, quality and story.</p></div>
+              <div><p className="font-display text-2xl">Documented</p><p className="mt-1 text-sm leading-6 text-white/48">Private records organized into a lasting dossier.</p></div>
+              <div><p className="font-display text-2xl">Connected</p><p className="mt-1 text-sm leading-6 text-white/48">Wanted Lists quietly match cars with collectors.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className="bg-[#e9e5dc] px-5 py-20 text-[#171918] sm:px-8 lg:px-12 lg:py-28">
+        <div className="mx-auto grid max-w-[90rem] gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-24">
+          <div><p className="text-sm font-bold uppercase tracking-[.18em] text-[#806c49]">Why it exists</p><h2 className="mt-5 font-display text-5xl leading-[.96] sm:text-6xl">Great cars deserve more than a listing.</h2></div>
+          <div className="space-y-7 text-lg leading-8 text-black/62"><p>The best motorcars often change hands through trust, timing and relationships. Motorcar Society gives those exchanges a considered home: a private Registry where the car’s identity, condition, history and supporting material stay together.</p><p>Members can maintain a private Wanted List, discover Registry releases suited to their collection and request deeper access when a car matters to them. Owners gain a discreet, organized presentation for qualified collectors.</p><a href={`${signInPath}${signInPath.includes("?") ? "&" : "?"}mode=register`} className="inline-flex min-h-13 items-center rounded-lg bg-[#171918] px-6 text-base font-semibold text-white">Become a member<ArrowRight className="ml-2 size-5" /></a></div>
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -1645,7 +1682,7 @@ function ContactImport({ onImported }: { onImported: () => void }) {
   return <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7"><h2 className="font-display text-3xl">Import client contacts</h2><p className="mt-3 max-w-3xl leading-7 text-black/58">Upload a CSV with an Email or Email Address column. Names and phone numbers are optional. Contacts remain invitation records until they create their own secure account.</p><div className="mt-6 grid gap-5 lg:grid-cols-[1fr_13rem_15rem_auto] lg:items-end"><div><label className="admin-label">CSV file</label><label className="mt-2 flex min-h-12 cursor-pointer items-center rounded-lg border border-dashed border-black/20 bg-white px-4 font-semibold hover:border-[#806c49]"><Upload className="mr-2 size-5 text-[#806c49]" />{filename || "Choose contact list"}<input type="file" accept=".csv,text/csv" className="sr-only" onChange={(event) => void selectFile(event.target.files?.[0])} /></label></div><div><label className="admin-label">List source</label><input value={source} onChange={(event) => setSource(event.target.value)} className="admin-field mt-2 h-12" /></div><div><label className="admin-label">Email permission</label><NativeSelect value={permission} onChange={(event) => setPermission(event.target.value)} className="mt-2 h-12 w-full border-black/15"><NativeSelectOption value="needs_review">Needs review</NativeSelectOption><NativeSelectOption value="existing_client">Existing client relationship</NativeSelectOption><NativeSelectOption value="confirmed_opt_in">Confirmed opt-in</NativeSelectOption><NativeSelectOption value="unsubscribed">Do not contact</NativeSelectOption></NativeSelect></div><Button disabled={!contacts.length || saving} onClick={importList} className="h-12 bg-[#806c49] text-white hover:bg-[#695737]">{saving ? "Importing…" : `Import ${contacts.length || ""}`}</Button></div>{message && <p className="mt-5 rounded-lg border border-black/10 bg-white p-4 text-sm" role="status">{message}</p>}<p className="mt-4 text-sm leading-6 text-black/48">Automated marketing should only use contacts whose permission is confirmed. Every message must include an unsubscribe path.</p></section>;
 }
 
-function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
+function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void; section: AdminSection }) {
   const [members, setMembers] = useState<MemberAccount[]>([]);
   const [cars, setCars] = useState<RegistryCar[]>([]);
   const [dossierRequests, setDossierRequests] = useState<{ id: string; carId: string; requesterEmail: string; status: string; createdAt: number; year: string; make: string; model: string }[]>([]);
@@ -1687,6 +1724,7 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
   }, []);
 
   useEffect(() => { let active = true; fetch("/api/admin/wanted", { cache: "no-store" }).then(async (response) => { const payload = await response.json() as { requests?: typeof wantedRequests }; if (active && response.ok) setWantedRequests(payload.requests || []); }).catch(() => undefined); return () => { active = false; }; }, []);
+  useEffect(() => { const matchId = new URLSearchParams(window.location.search).get("match"); if (matchId && cars.length) setMatchCar(cars.find((car) => car.id === matchId) || null); }, [cars]);
 
   const updateLocal = (userId: string, field: "role" | "tier" | "status", value: string) => setMembers((current) => current.map((member) => member.userId === userId ? { ...member, [field]: value } as MemberAccount : member));
   const save = async (member: MemberAccount) => {
@@ -1744,38 +1782,50 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
     if (!textMatch || !matchCar) return textMatch;
     return (!request.make || normalizeWanted(matchCar.make).includes(normalizeWanted(request.make))) && (!request.model || normalizeWanted(matchCar.model).includes(normalizeWanted(request.model)) || normalizeWanted(request.model).includes(normalizeWanted(matchCar.model)));
   });
+  const adminLinks: { id: AdminSection; label: string }[] = [
+    { id: "dossier-requests", label: "Dossier requests" },
+    { id: "contacts", label: "Import client contacts" },
+    { id: "wanted-list", label: "Member Wanted List" },
+    { id: "registry-releases", label: "Registry releases" },
+    { id: "accounts", label: "Accounts" },
+  ];
 
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#e9e5dc] px-5 py-12 text-[#171918] sm:px-8 lg:px-12">
       <div className="mx-auto max-w-[90rem]">
-        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Dean only</p>
-        <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><h1 className="font-display text-5xl sm:text-6xl">Admin Console</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-black/58">Approve member access, assign tiers, and keep staff permissions separate.</p></div><Button onClick={() => onOpenCar("")} className="h-13 bg-[#1a1c1b] px-6 text-white hover:bg-[#343735]">Create car file</Button></div>
+        <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Private administration</p>
+        <div className="mt-3"><h1 className="font-display text-5xl sm:text-6xl">Admin Console</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-black/58">Manage requests, members, client demand and Registry releases from focused workspaces.</p></div>
+        <nav className="mt-8 flex gap-2 overflow-x-auto border-b border-black/12 pb-3" aria-label="Admin Console navigation">
+          {adminLinks.map((link) => <a key={link.id} href={`/admin/${link.id}`} className={`shrink-0 rounded-lg px-4 py-3 text-sm font-semibold transition ${section === link.id ? "bg-[#171918] text-white" : "bg-white/55 text-black/58 hover:bg-white hover:text-black"}`}>{link.label}</a>)}
+        </nav>
         {error && <p className="mt-7 rounded-lg border border-red-700/20 bg-red-700/8 p-4 text-sm text-red-800">{error}</p>}
-        <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+        {section === "dossier-requests" && <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Dossier requests</h2><span className="rounded-full bg-[#806c49]/10 px-3 py-1.5 text-sm font-semibold text-[#6f5d3f]">{dossierRequests.filter((item) => item.status === "new").length} new</span></div>
           {dossierRequests.length === 0 ? <p className="mt-6 text-black/50">New member requests will appear here.</p> : <div className="mt-6 space-y-3">{dossierRequests.map((request) => <article key={request.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(15rem,1fr)_minmax(14rem,1fr)_11rem_auto] lg:items-end"><div><p className="font-display text-2xl">{request.year} {request.make} {request.model}</p><p className="mt-1 text-sm text-black/48">Requested {new Date(request.createdAt).toLocaleDateString()}</p></div><div><label className="admin-label">Member</label><p className="mt-2 min-h-11 truncate rounded-lg bg-black/[0.035] px-3 py-3 text-sm">{request.requesterEmail}</p></div><div><label className="admin-label">Status</label><NativeSelect value={request.status} onChange={(event) => setDossierRequests((current) => current.map((item) => item.id === request.id ? { ...item, status: event.target.value } : item))} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="new">New</NativeSelectOption><NativeSelectOption value="contacted">Contacted</NativeSelectOption><NativeSelectOption value="closed">Closed</NativeSelectOption></NativeSelect></div><Button disabled={savingId === request.id} onClick={() => void updateDossierRequest(request.id, request.status)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === request.id ? "Saving…" : "Save"}</Button></article>)}</div>}
-        </section>
-        <ContactImport onImported={() => undefined} />
-        <section id="wanted-demand" className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+        </section>}
+        {section === "contacts" && <ContactImport onImported={() => undefined} />}
+        {section === "wanted-list" && <section id="wanted-demand" className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end"><div><h2 className="font-display text-3xl">Member Wanted List</h2><p className="mt-2 text-black/52">Search member demand or compare it with a Registry car.</p></div><label className="relative w-full lg:max-w-sm"><Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-black/35" /><input value={wantedSearch} onChange={(event) => setWantedSearch(event.target.value)} className="admin-field pl-12" placeholder="Search member, make or model" /></label></div>
           {matchCar && <div className="mt-5 flex flex-col justify-between gap-3 rounded-xl border border-[#806c49]/20 bg-[#806c49]/8 p-4 sm:flex-row sm:items-center"><p><span className="font-semibold">Suggested matches for:</span> {matchCar.year} {matchCar.make} {matchCar.model}</p><button onClick={() => setMatchCar(null)} className="text-sm font-semibold text-[#806c49]">Show all requests</button></div>}
           {wantedMatches.length ? <div className="mt-5 space-y-3">{wantedMatches.map((request) => <article key={request.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[1fr_1fr_auto] lg:items-center"><div><p className="font-display text-2xl">{request.year} {request.make} {request.model}</p><p className="mt-1 text-sm text-black/48">{request.variant || "Any suitable specification"} · {request.acquisitionLow || request.acquisitionHigh ? `$${request.acquisitionLow || "Open"}–$${request.acquisitionHigh || "Open"}` : "Open range"}</p></div><div><p className="font-semibold">{request.displayName || request.email}</p><p className="mt-1 text-sm text-black/48">{request.email}</p></div>{matchCar ? <a href={`mailto:${request.email}?subject=${encodeURIComponent(`Private Registry match: ${matchCar.year} ${matchCar.make} ${matchCar.model}`)}&body=${encodeURIComponent(`A vehicle matching your Motorcar Society Wanted List is now available for private review:\n\n${window.location.origin}/registry/${matchCar.id}`)}`} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#806c49] px-5 text-sm font-semibold text-white hover:bg-[#695737]">Invite to view</a> : <span className="text-sm font-semibold text-black/38">Active request</span>}</article>)}</div> : <p className="mt-6 rounded-xl border border-black/8 bg-white p-8 text-center text-black/48">No matching Wanted requests.</p>}
-        </section>
-        <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
-          <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Registry releases</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{cars.length} car files</span></div>
-          {cars.length === 0 ? <p className="mt-7 text-black/50">Create the first car file when an owner is ready.</p> : <div className="mt-6 space-y-3">{cars.map((car) => <article key={car.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 xl:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto_auto_auto] xl:items-end"><div><p className="font-display text-2xl">{car.year} {car.make} {car.model}</p><p className="mt-1 text-sm text-black/48">{car.registryId} · {car.category || "Uncategorized"}</p></div><div><label className="admin-label">Audience</label><NativeSelect value={car.visibility} onChange={(event) => updateCarLocal(car.id, "visibility", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="private">Private match</NativeSelectOption><NativeSelectOption value="members">Members</NativeSelectOption><NativeSelectOption value="public">Public</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Status</label><NativeSelect value={car.status} onChange={(event) => updateCarLocal(car.id, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="intake">Intake</NativeSelectOption><NativeSelectOption value="review">Review</NativeSelectOption><NativeSelectOption value="ready">Ready</NativeSelectOption><NativeSelectOption value="released">Released</NativeSelectOption></NativeSelect></div><Button variant="outline" onClick={() => onOpenCar(car.id)} className="h-11 border-black/15">Open file</Button><Button variant="outline" onClick={() => { setMatchCar(car); setWantedSearch(""); document.getElementById("wanted-demand")?.scrollIntoView({ behavior: "smooth" }); }} className="h-11 border-[#806c49]/30 text-[#806c49]">Find matches</Button><Button disabled={savingId === car.id} onClick={() => releaseCar(car)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === car.id ? "Saving…" : "Save release"}</Button><Button variant="outline" disabled={savingId === car.id} onClick={() => void deleteCar(car)} className="h-11 border-[#8f3329]/25 text-[#8f3329] hover:bg-[#8f3329] hover:text-white"><Trash2 className="mr-2 size-4" />Delete</Button></article>)}</div>}
-        </section>
-        <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+        </section>}
+        {section === "registry-releases" && <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h2 className="font-display text-3xl">Registry releases</h2><p className="mt-2 text-black/52">Create, review and release individual vehicle files.</p></div><Button onClick={() => onOpenCar("")} className="h-13 bg-[#1a1c1b] px-6 text-white hover:bg-[#343735]">Create car file</Button></div>
+          <div className="mt-5"><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{cars.length} car files</span></div>
+          {cars.length === 0 ? <p className="mt-7 text-black/50">Create the first car file when an owner is ready.</p> : <div className="mt-6 space-y-3">{cars.map((car) => <article key={car.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 xl:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto_auto_auto] xl:items-end"><div><p className="font-display text-2xl">{car.year} {car.make} {car.model}</p><p className="mt-1 text-sm text-black/48">{car.registryId} · {car.category || "Uncategorized"}</p></div><div><label className="admin-label">Audience</label><NativeSelect value={car.visibility} onChange={(event) => updateCarLocal(car.id, "visibility", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="private">Private match</NativeSelectOption><NativeSelectOption value="members">Members</NativeSelectOption><NativeSelectOption value="public">Public</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Status</label><NativeSelect value={car.status} onChange={(event) => updateCarLocal(car.id, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="intake">Intake</NativeSelectOption><NativeSelectOption value="review">Review</NativeSelectOption><NativeSelectOption value="ready">Ready</NativeSelectOption><NativeSelectOption value="released">Released</NativeSelectOption></NativeSelect></div><Button variant="outline" onClick={() => onOpenCar(car.id)} className="h-11 border-black/15">Open file</Button><a href={`/admin/wanted-list?match=${car.id}`} className="inline-flex h-11 items-center justify-center rounded-lg border border-[#806c49]/30 px-4 text-sm font-semibold text-[#806c49] hover:bg-[#806c49]/8">Find matches</a><Button disabled={savingId === car.id} onClick={() => releaseCar(car)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === car.id ? "Saving…" : "Save release"}</Button><Button variant="outline" disabled={savingId === car.id} onClick={() => void deleteCar(car)} className="h-11 border-[#8f3329]/25 text-[#8f3329] hover:bg-[#8f3329] hover:text-white"><Trash2 className="mr-2 size-4" />Delete</Button></article>)}</div>}
+        </section>}
+        {section === "accounts" && <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Accounts</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{members.filter((member) => member.status === "pending").length} pending</span></div>
           {loading ? <p className="mt-7 text-black/50">Loading accounts…</p> : members.length === 0 ? <p className="mt-7 text-black/50">Accounts appear here after the first sign-in.</p> : <div className="mt-6 space-y-3">{members.map((member) => <article key={member.userId} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(14rem,1fr)_10rem_11rem_10rem_auto] lg:items-end"><div className="min-w-0"><p className="truncate font-semibold">{member.displayName || member.email}</p><p className="mt-1 truncate text-sm text-black/48">{member.email}</p></div><div><label className="admin-label">Status</label><NativeSelect value={member.status} onChange={(event) => updateLocal(member.userId, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="pending">Pending</NativeSelectOption><NativeSelectOption value="approved">Approved</NativeSelectOption><NativeSelectOption value="denied">Denied</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Role</label><NativeSelect value={member.role} onChange={(event) => updateLocal(member.userId, "role", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="applicant">Applicant</NativeSelectOption><NativeSelectOption value="member">Member</NativeSelectOption><NativeSelectOption value="barnaby">Barnaby</NativeSelectOption><NativeSelectOption value="admin">Admin</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Level</label><NativeSelect value={member.tier} onChange={(event) => updateLocal(member.userId, "tier", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="none">None</NativeSelectOption><NativeSelectOption value="standard">Verified</NativeSelectOption><NativeSelectOption value="priority">Priority</NativeSelectOption><NativeSelectOption value="private">Private</NativeSelectOption><NativeSelectOption value="staff">Staff</NativeSelectOption><NativeSelectOption value="leadership">Leadership</NativeSelectOption></NativeSelect></div><Button disabled={savingId === member.userId} onClick={() => save(member)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === member.userId ? "Saving…" : "Save"}</Button></article>)}</div>}
-        </section>
+        </section>}
       </div>
     </main>
   );
 }
 
-export default function MotorcarApp({ signInPath, signOutPath, userEmail, initialCarId = null }: { signInPath: string; signOutPath: string; userEmail: string | null; initialCarId?: string | null }) {
-  const [view, setView] = useState<View>(initialCarId ? "vehicle" : "registry");
+export default function MotorcarApp({ signInPath, signOutPath, userEmail, initialCarId = null, initialAdminSection = null }: { signInPath: string; signOutPath: string; userEmail: string | null; initialCarId?: string | null; initialAdminSection?: AdminSection | null }) {
+  const [view, setView] = useState<View>(initialCarId ? "vehicle" : initialAdminSection ? "admin" : "registry");
+  const [adminSection, setAdminSection] = useState<AdminSection>(initialAdminSection || "dossier-requests");
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
   const [registryCarId, setRegistryCarId] = useState<string | null>(initialCarId);
   const normalizedEmail = userEmail?.trim().toLowerCase() ?? null;
@@ -1795,7 +1845,12 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
     const handlePopState = () => {
       const match = window.location.pathname.match(/^\/registry\/([^/]+)$/);
       if (match) { setRegistryCarId(decodeURIComponent(match[1])); setView("vehicle"); }
-      else { setRegistryCarId(null); setView("registry"); }
+      else {
+        const adminMatch = window.location.pathname.match(/^\/admin\/(dossier-requests|contacts|wanted-list|registry-releases|accounts)$/);
+        setRegistryCarId(null);
+        if (adminMatch) { setAdminSection(adminMatch[1] as AdminSection); setView("admin"); }
+        else setView("registry");
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -1808,11 +1863,12 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
   return (
     <div className="min-h-screen bg-[#101211]">
       <Header view={view} setView={(next) => { if (view === "vehicle") window.history.pushState({}, "", "/"); setView(next); }} canAccessDesk={canAccessDesk} canAccessAdmin={canAccessAdmin} userEmail={userEmail} signInPath={signInPath} />
-      {view === "registry" && <Registry setView={setView} onOpenCar={openVehiclePage} />}
+      {view === "registry" && (userEmail ? <Registry setView={setView} onOpenCar={openVehiclePage} /> : <Landing signInPath={signInPath} />)}
       {view === "vehicle" && registryCarId && <RegistryVehicle carId={registryCarId} userEmail={userEmail} signInPath={signInPath} onBack={returnToRegistry} />}
       {view === "wanted" && <WantedVehicleList userEmail={userEmail} signInPath={signInPath} />}
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
-      {view === "admin" && canAccessAdmin && <AdminConsole onOpenCar={(id) => { setActiveCarId(id || null); setView("intake"); }} />}
+      {view === "admin" && canAccessAdmin && <AdminConsole section={adminSection} onOpenCar={(id) => { setActiveCarId(id || null); setView("intake"); }} />}
+      {view === "admin" && !canAccessAdmin && <Membership account={account} setAccount={setAccount} signInPath={signInPath} signOutPath={signOutPath} setView={setView} />}
       {view === "intake" && canManageCars && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} onPreview={openVehiclePage} returnView={canAccessAdmin ? "admin" : "desk"} />}
       {view === "membership" && <Membership key={account?.updatedAt || account?.userId || "anonymous"} account={account} setAccount={setAccount} signInPath={signInPath} signOutPath={signOutPath} setView={setView} />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
