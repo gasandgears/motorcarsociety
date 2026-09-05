@@ -43,6 +43,13 @@
       "when": 1788628984028,
       "tag": "0005_thankful_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788629943722,
+      "tag": "0006_motionless_whiplash",
+      "breakpoints": true
     }
   ]
 }

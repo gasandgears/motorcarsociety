@@ -38,7 +38,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-type View = "registry" | "wanted" | "desk" | "intake" | "membership" | "admin";
+type View = "registry" | "vehicle" | "wanted" | "desk" | "intake" | "membership" | "admin";
 
 type MemberAccount = {
   userId: string;
@@ -150,7 +150,7 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
   );
 }
 
-function Registry({ setView }: { setView: (view: View) => void }) {
+function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpenCar: (id: string) => void }) {
   const [registryCars, setRegistryCars] = useState<RegistryCar[]>([]);
   useEffect(() => {
     let active = true;
@@ -253,6 +253,7 @@ function Registry({ setView }: { setView: (view: View) => void }) {
             {cards.map((car) => (
               <button
                 key={car.id}
+                onClick={() => !car.id.startsWith("curated-") && onOpenCar(car.id)}
                 className="group min-h-64 overflow-hidden rounded-xl border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
                 <div className="flex h-28 items-center justify-between border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-6">
@@ -299,6 +300,80 @@ function Registry({ setView }: { setView: (view: View) => void }) {
           </div>
         </div>
       </section>
+    </main>
+  );
+}
+
+type RegistryVehicleData = {
+  id: string;
+  year: string;
+  make: string;
+  model: string;
+  location: string;
+  expectedPrice: string;
+  notes: string;
+  visibility: string;
+  status: string;
+};
+
+function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: string; userEmail: string | null; signInPath: string; onBack: () => void }) {
+  const [car, setCar] = useState<RegistryVehicleData | null>(null);
+  const [photos, setPhotos] = useState<{ id: string; filename: string; url: string }[]>([]);
+  const [activePhoto, setActivePhoto] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [requesting, setRequesting] = useState(false);
+  const [requested, setRequested] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/registry/${carId}`, { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; error?: string };
+      if (!response.ok || !payload.car) throw new Error(payload.error || "This vehicle could not be opened.");
+      if (active) { setCar(payload.car); setPhotos(payload.photos || []); }
+    }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "This vehicle could not be opened."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [carId]);
+
+  const requestDossier = async () => {
+    setRequesting(true); setError("");
+    try {
+      const response = await fetch("/api/dossier-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ carId }) });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Your request could not be saved.");
+      setRequested(true);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Your request could not be saved."); }
+    finally { setRequesting(false); }
+  };
+
+  if (loading) return <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-14 text-white sm:px-8 lg:px-12"><div className="mx-auto h-[38rem] max-w-[90rem] animate-pulse rounded-2xl bg-white/5" /></main>;
+  if (!car) return <main className="grid min-h-[calc(100vh-5.25rem)] place-items-center bg-[#101211] px-5 text-white"><div className="max-w-lg text-center"><h1 className="font-display text-4xl">Vehicle unavailable</h1><p className="mt-4 text-white/60">{error}</p><Button onClick={onBack} className="mt-7 bg-[var(--gold)] text-black">Return to the Registry</Button></div></main>;
+
+  return (
+    <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] text-white">
+      <div className="mx-auto max-w-[90rem] px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
+        <Button variant="ghost" onClick={onBack} className="mb-7 px-0 text-white/62 hover:bg-transparent hover:text-white"><ArrowLeft className="mr-2 size-5" />The Registry</Button>
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(23rem,0.55fr)]">
+          <section>
+            <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-[#181a19]">
+              {photos[activePhoto] ? <img src={photos[activePhoto].url} alt={`${car.year} ${car.make} ${car.model}`} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Camera className="size-12 text-[var(--gold-light)]" /></div>}
+              <div className="absolute bottom-4 right-4 rounded-full bg-black/70 px-4 py-2 text-sm backdrop-blur">{photos.length ? `${activePhoto + 1} / ${photos.length}` : "Private imagery pending"}</div>
+            </div>
+            {photos.length > 1 && <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-thin">{photos.slice(0, 18).map((photo, index) => <button key={photo.id} onClick={() => setActivePhoto(index)} aria-label={`View photo ${index + 1}`} className={`h-20 w-28 shrink-0 overflow-hidden rounded-lg border ${index === activePhoto ? "border-[var(--gold-light)]" : "border-white/10"}`}><img src={photo.url} alt="" className="h-full w-full object-cover" /></button>)}</div>}
+          </section>
+          <aside className="xl:sticky xl:top-32 xl:self-start">
+            <p className="eyebrow">Motorcar Society Registry</p>
+            <h1 className="mt-4 font-display text-5xl leading-[0.95] sm:text-6xl">{car.year}<span className="mt-3 block text-[0.55em] leading-tight">{car.make} {car.model}</span></h1>
+            <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
+            <p className="mt-7 text-lg leading-8 text-white/67">{car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</p>
+            <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{car.expectedPrice || "On request"}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
+            {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
+            {userEmail ? <Button disabled={requesting || requested} onClick={() => void requestDossier()} className="mt-7 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{requesting ? "Sending request…" : requested ? "Dossier requested" : "Request Private Dossier"}{requested ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />}</Button> : <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111]">Sign in to request dossier<ArrowRight className="ml-2 size-5" /></a>}
+            <p className="mt-4 text-center text-sm leading-6 text-white/42">Requests are reviewed personally. Source documents remain restricted to Motorcar Society staff.</p>
+          </aside>
+        </div>
+      </div>
     </main>
   );
 }
@@ -1373,6 +1448,7 @@ function ContactImport({ onImported }: { onImported: () => void }) {
 function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
   const [members, setMembers] = useState<MemberAccount[]>([]);
   const [cars, setCars] = useState<RegistryCar[]>([]);
+  const [dossierRequests, setDossierRequests] = useState<{ id: string; carId: string; requesterEmail: string; status: string; createdAt: number; year: string; make: string; model: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -1384,6 +1460,16 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
       if (!response.ok) throw new Error(payload.error || "Accounts could not be loaded.");
       if (active) setMembers(payload.members || []);
     }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "Accounts could not be loaded."); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/dossier-requests", { cache: "no-store" }).then(async (response) => {
+      const payload = await response.json() as { requests?: typeof dossierRequests; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Dossier requests could not be loaded.");
+      if (active) setDossierRequests(payload.requests || []);
+    }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "Dossier requests could not be loaded."); });
     return () => { active = false; };
   }, []);
 
@@ -1424,12 +1510,27 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
     finally { setSavingId(null); }
   };
 
+  const updateDossierRequest = async (id: string, status: string) => {
+    setSavingId(id); setError("");
+    try {
+      const response = await fetch("/api/admin/dossier-requests", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status }) });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "The request could not be updated.");
+      setDossierRequests((current) => current.map((item) => item.id === id ? { ...item, status } : item));
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "The request could not be updated."); }
+    finally { setSavingId(null); }
+  };
+
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#e9e5dc] px-5 py-12 text-[#171918] sm:px-8 lg:px-12">
       <div className="mx-auto max-w-[90rem]">
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Dean only</p>
         <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><h1 className="font-display text-5xl sm:text-6xl">Admin Console</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-black/58">Approve member access, assign tiers, and keep staff permissions separate.</p></div><Button onClick={() => onOpenCar("")} className="h-13 bg-[#1a1c1b] px-6 text-white hover:bg-[#343735]">Create car file</Button></div>
         {error && <p className="mt-7 rounded-lg border border-red-700/20 bg-red-700/8 p-4 text-sm text-red-800">{error}</p>}
+        <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+          <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Dossier requests</h2><span className="rounded-full bg-[#806c49]/10 px-3 py-1.5 text-sm font-semibold text-[#6f5d3f]">{dossierRequests.filter((item) => item.status === "new").length} new</span></div>
+          {dossierRequests.length === 0 ? <p className="mt-6 text-black/50">New member requests will appear here.</p> : <div className="mt-6 space-y-3">{dossierRequests.map((request) => <article key={request.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(15rem,1fr)_minmax(14rem,1fr)_11rem_auto] lg:items-end"><div><p className="font-display text-2xl">{request.year} {request.make} {request.model}</p><p className="mt-1 text-sm text-black/48">Requested {new Date(request.createdAt).toLocaleDateString()}</p></div><div><label className="admin-label">Member</label><p className="mt-2 min-h-11 truncate rounded-lg bg-black/[0.035] px-3 py-3 text-sm">{request.requesterEmail}</p></div><div><label className="admin-label">Status</label><NativeSelect value={request.status} onChange={(event) => setDossierRequests((current) => current.map((item) => item.id === request.id ? { ...item, status: event.target.value } : item))} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="new">New</NativeSelectOption><NativeSelectOption value="contacted">Contacted</NativeSelectOption><NativeSelectOption value="closed">Closed</NativeSelectOption></NativeSelect></div><Button disabled={savingId === request.id} onClick={() => void updateDossierRequest(request.id, request.status)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === request.id ? "Saving…" : "Save"}</Button></article>)}</div>}
+        </section>
         <ContactImport onImported={() => undefined} />
         <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Registry releases</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{cars.length} car files</span></div>
@@ -1447,6 +1548,7 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
 export default function MotorcarApp({ signInPath, signOutPath, userEmail }: { signInPath: string; signOutPath: string; userEmail: string | null }) {
   const [view, setView] = useState<View>("registry");
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
+  const [registryCarId, setRegistryCarId] = useState<string | null>(null);
   const normalizedEmail = userEmail?.trim().toLowerCase() ?? null;
   const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deank@kirklanddigital.com" ? "admin" : normalizedEmail === "deankirkland@me.com" ? "member" : "applicant";
   const [account, setAccount] = useState<MemberAccount | null>(initialRole ? { userId: "", email: userEmail!, displayName: userEmail!.split("@")[0], phone: "", location: "", collectionNotes: "", role: initialRole, tier: initialRole === "admin" ? "leadership" : initialRole === "barnaby" ? "staff" : initialRole === "member" ? "standard" : "none", status: initialRole === "applicant" ? "pending" : "approved", createdAt: 0, updatedAt: 0 } : null);
@@ -1466,7 +1568,8 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail }: { si
   return (
     <div className="min-h-screen bg-[#101211]">
       <Header view={view} setView={setView} canAccessDesk={canAccessDesk} canAccessAdmin={canAccessAdmin} userEmail={userEmail} signInPath={signInPath} />
-      {view === "registry" && <Registry setView={setView} />}
+      {view === "registry" && <Registry setView={setView} onOpenCar={(id) => { setRegistryCarId(id); setView("vehicle"); window.scrollTo({ top: 0 }); }} />}
+      {view === "vehicle" && registryCarId && <RegistryVehicle carId={registryCarId} userEmail={userEmail} signInPath={signInPath} onBack={() => setView("registry")} />}
       {view === "wanted" && <WantedList userEmail={userEmail} signInPath={signInPath} />}
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
       {view === "admin" && canAccessAdmin && <AdminConsole onOpenCar={(id) => { setActiveCarId(id || null); setView("intake"); }} />}

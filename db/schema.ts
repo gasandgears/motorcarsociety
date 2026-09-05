@@ -124,3 +124,20 @@ export const carTaskStates = sqliteTable(
     index("idx_car_task_states_status_due").on(table.status, table.dueAt),
   ],
 );
+
+export const dossierRequests = sqliteTable(
+  "dossier_requests",
+  {
+    id: text("id").primaryKey(),
+    carId: text("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
+    requesterUserId: text("requester_user_id").notNull().references(() => accounts.userId, { onDelete: "cascade" }),
+    requesterEmail: text("requester_email").notNull(),
+    status: text("status").notNull().default("new"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_dossier_requests_car_user").on(table.carId, table.requesterUserId),
+    index("idx_dossier_requests_status_created").on(table.status, table.createdAt),
+  ],
+);
