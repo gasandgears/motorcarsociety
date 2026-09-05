@@ -314,6 +314,19 @@ type RegistryVehicleData = {
   notes: string;
   visibility: string;
   status: string;
+  exteriorColor: string;
+  interiorColor: string;
+  mileage: string;
+  bodyStyle: string;
+  engine: string;
+  transmission: string;
+  drivetrain: string;
+  registryId: string;
+  overview: string;
+  highlights: string;
+  conditionSummary: string;
+  provenance: string;
+  restorationSummary: string;
 };
 
 function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: string; userEmail: string | null; signInPath: string; onBack: () => void }) {
@@ -326,6 +339,12 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   const [requested, setRequested] = useState(false);
   const numericPrice = Number(car?.expectedPrice?.replace(/[$,\s]/g, ""));
   const priceGuidance = car?.expectedPrice && Number.isFinite(numericPrice) ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(numericPrice) : car?.expectedPrice || "On request";
+  const highlights = car?.highlights.split("\n").map((item) => item.replace(/^[-•]\s*/, "").trim()).filter(Boolean) || [];
+  const specifications = car ? [
+    ["Exterior", car.exteriorColor], ["Interior", car.interiorColor], ["Mileage", car.mileage],
+    ["Body style", car.bodyStyle], ["Engine", car.engine], ["Transmission", car.transmission],
+    ["Drivetrain", car.drivetrain], ["Registry ID", car.registryId],
+  ].filter(([, value]) => value) : [];
 
   useEffect(() => {
     let active = true;
@@ -368,12 +387,27 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
             <p className="eyebrow">Motorcar Society Registry</p>
             <h1 className="mt-4 font-display text-5xl leading-[0.95] sm:text-6xl">{car.year}<span className="mt-3 block text-[0.55em] leading-tight">{car.make} {car.model}</span></h1>
             <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
-            <p className="mt-7 text-lg leading-8 text-white/67">{car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</p>
+            <p className="mt-7 text-lg leading-8 text-white/67">{car.overview || car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</p>
             <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
             {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
             {userEmail ? <Button disabled={requesting || requested} onClick={() => void requestDossier()} className="mt-7 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{requesting ? "Sending request…" : requested ? "Dossier requested" : "Request Private Dossier"}{requested ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />}</Button> : <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111]">Sign in to request dossier<ArrowRight className="ml-2 size-5" /></a>}
             <p className="mt-4 text-center text-sm leading-6 text-white/42">Requests are reviewed personally. Source documents remain restricted to Motorcar Society staff.</p>
           </aside>
+        </div>
+        <div className="mt-16 border-t border-white/10 pt-12 lg:mt-20 lg:pt-16">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.65fr)] lg:gap-20">
+            <div className="space-y-14">
+              {(car.overview || car.notes) && <section aria-labelledby="vehicle-overview"><p className="eyebrow">The motorcar</p><h2 id="vehicle-overview" className="mt-3 font-display text-4xl sm:text-5xl">Overview</h2><p className="mt-6 max-w-4xl whitespace-pre-line text-lg leading-8 text-white/68">{car.overview || car.notes}</p></section>}
+              {highlights.length > 0 && <section aria-labelledby="vehicle-highlights"><p className="eyebrow">At a glance</p><h2 id="vehicle-highlights" className="mt-3 font-display text-4xl">Documented highlights</h2><ul className="mt-7 grid gap-x-8 gap-y-4 sm:grid-cols-2">{highlights.map((item) => <li key={item} className="flex gap-3 border-t border-white/10 pt-4 text-base leading-7 text-white/72"><Check className="mt-1 size-4 shrink-0 text-[var(--gold-light)]" />{item}</li>)}</ul></section>}
+              {car.conditionSummary && <section aria-labelledby="vehicle-condition"><p className="eyebrow">Inspection record</p><h2 id="vehicle-condition" className="mt-3 font-display text-4xl">Condition</h2><p className="mt-6 whitespace-pre-line text-lg leading-8 text-white/68">{car.conditionSummary}</p></section>}
+              {car.restorationSummary && <section aria-labelledby="vehicle-restoration"><p className="eyebrow">Care &amp; preservation</p><h2 id="vehicle-restoration" className="mt-3 font-display text-4xl">Restoration history</h2><p className="mt-6 whitespace-pre-line text-lg leading-8 text-white/68">{car.restorationSummary}</p></section>}
+              {car.provenance && <section aria-labelledby="vehicle-provenance"><p className="eyebrow">Recorded history</p><h2 id="vehicle-provenance" className="mt-3 font-display text-4xl">Provenance</h2><p className="mt-6 whitespace-pre-line text-lg leading-8 text-white/68">{car.provenance}</p></section>}
+            </div>
+            <aside className="space-y-8">
+              {specifications.length > 0 && <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-6 sm:p-7"><p className="eyebrow">Vehicle details</p><h2 className="mt-3 font-display text-3xl">Specifications</h2><dl className="mt-6">{specifications.map(([label, value]) => <div key={label} className="grid grid-cols-[7rem_1fr] gap-4 border-t border-white/10 py-4 first:border-t-0 first:pt-0"><dt className="text-sm text-white/40">{label}</dt><dd className="text-sm font-semibold leading-6 text-white/82">{value}</dd></div>)}</dl></section>}
+              <section className="rounded-2xl border border-[var(--gold)]/25 bg-[var(--gold)]/[0.07] p-6 sm:p-7"><ShieldCheck className="size-7 text-[var(--gold-light)]" /><h2 className="mt-5 font-display text-3xl">Registry documentation</h2><p className="mt-4 leading-7 text-white/60">Ownership, identity, drivetrain, restoration, condition and photo records are retained in the private vehicle file.</p><p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-[var(--gold-light)]">Available by approved dossier request</p></section>
+            </aside>
+          </div>
         </div>
       </div>
     </main>
@@ -791,6 +825,19 @@ type SavedCarDetail = {
   location: string;
   vin: string;
   notes: string;
+  exteriorColor: string;
+  interiorColor: string;
+  mileage: string;
+  bodyStyle: string;
+  engine: string;
+  transmission: string;
+  drivetrain: string;
+  registryId: string;
+  overview: string;
+  highlights: string;
+  conditionSummary: string;
+  provenance: string;
+  restorationSummary: string;
   receivedCategories: string;
   visibility: string;
   status: string;
@@ -847,6 +894,19 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
     location: "",
     vin: "",
     notes: "",
+    exteriorColor: "",
+    interiorColor: "",
+    mileage: "",
+    bodyStyle: "",
+    engine: "",
+    transmission: "",
+    drivetrain: "",
+    registryId: "",
+    overview: "",
+    highlights: "",
+    conditionSummary: "",
+    provenance: "",
+    restorationSummary: "",
   });
 
   useEffect(() => {
@@ -869,6 +929,19 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
           location: saved.location,
           vin: saved.vin,
           notes: saved.notes,
+          exteriorColor: saved.exteriorColor,
+          interiorColor: saved.interiorColor,
+          mileage: saved.mileage,
+          bodyStyle: saved.bodyStyle,
+          engine: saved.engine,
+          transmission: saved.transmission,
+          drivetrain: saved.drivetrain,
+          registryId: saved.registryId,
+          overview: saved.overview,
+          highlights: saved.highlights,
+          conditionSummary: saved.conditionSummary,
+          provenance: saved.provenance,
+          restorationSummary: saved.restorationSummary,
         });
         setVisibility(saved.visibility);
         const files = data.files || [];
@@ -1153,6 +1226,26 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
                   <div><label className="admin-label" htmlFor="car-location">Car location</label><input id="car-location" value={car.location} onChange={(event) => setField("location", event.target.value)} className="admin-field mt-2" placeholder="Newport Beach, California" /></div>
                   <div className="sm:col-span-2"><label className="admin-label" htmlFor="car-vin">VIN or chassis number</label><input id="car-vin" value={car.vin} onChange={(event) => setField("vin", event.target.value)} className="admin-field mt-2" placeholder="Enter now or leave for the checklist" /></div>
                   <div className="sm:col-span-2"><label className="admin-label" htmlFor="call-notes">Notes from the call</label><textarea id="call-notes" value={car.notes} onChange={(event) => setField("notes", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" placeholder="Ownership, condition, timing, known history and anything promised to the seller" /></div>
+                </div>
+                <div className="mt-10 border-t border-black/10 pt-8">
+                  <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#806c49]">Member listing details</p>
+                  <h3 className="mt-3 font-display text-3xl">Build the vehicle presentation.</h3>
+                  <p className="mt-3 max-w-3xl leading-7 text-black/52">These details become the full Registry listing members see. Leave a field blank when it is not yet documented.</p>
+                  <div className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <div><label className="admin-label" htmlFor="exterior-color">Exterior color</label><input id="exterior-color" value={car.exteriorColor} onChange={(event) => setField("exteriorColor", event.target.value)} className="admin-field mt-2" placeholder="Grabber Blue" /></div>
+                    <div><label className="admin-label" htmlFor="interior-color">Interior color</label><input id="interior-color" value={car.interiorColor} onChange={(event) => setField("interiorColor", event.target.value)} className="admin-field mt-2" placeholder="Black" /></div>
+                    <div><label className="admin-label" htmlFor="mileage">Mileage</label><input id="mileage" value={car.mileage} onChange={(event) => setField("mileage", event.target.value)} className="admin-field mt-2" placeholder="42,150 miles" /></div>
+                    <div><label className="admin-label" htmlFor="body-style">Body style</label><input id="body-style" value={car.bodyStyle} onChange={(event) => setField("bodyStyle", event.target.value)} className="admin-field mt-2" placeholder="Fastback" /></div>
+                    <div className="sm:col-span-2"><label className="admin-label" htmlFor="engine">Engine</label><input id="engine" value={car.engine} onChange={(event) => setField("engine", event.target.value)} className="admin-field mt-2" placeholder="302 cu in Boss V8" /></div>
+                    <div><label className="admin-label" htmlFor="transmission">Transmission</label><input id="transmission" value={car.transmission} onChange={(event) => setField("transmission", event.target.value)} className="admin-field mt-2" placeholder="4-speed manual" /></div>
+                    <div><label className="admin-label" htmlFor="drivetrain">Drivetrain</label><input id="drivetrain" value={car.drivetrain} onChange={(event) => setField("drivetrain", event.target.value)} className="admin-field mt-2" placeholder="Rear-wheel drive" /></div>
+                    <div className="sm:col-span-2"><label className="admin-label" htmlFor="registry-id">Registry ID</label><input id="registry-id" value={car.registryId} onChange={(event) => setField("registryId", event.target.value)} className="admin-field mt-2" placeholder="MCS-1970-BOSS302-002" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-overview">Overview</label><textarea id="listing-overview" value={car.overview} onChange={(event) => setField("overview", event.target.value)} className="admin-field mt-2 min-h-36 resize-y" placeholder="A concise, factual introduction to the motorcar…" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="listing-highlights">Documented highlights <span className="font-normal text-black/42">· one per line</span></label><textarea id="listing-highlights" value={car.highlights} onChange={(event) => setField("highlights", event.target.value)} className="admin-field mt-2 min-h-40 resize-y" placeholder={"Documented ownership history\nPeriod-correct drivetrain\nOlder restoration with records"} /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="condition-summary">Condition</label><textarea id="condition-summary" value={car.conditionSummary} onChange={(event) => setField("conditionSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="restoration-summary">Restoration history</label><textarea id="restoration-summary" value={car.restorationSummary} onChange={(event) => setField("restorationSummary", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
+                    <div className="sm:col-span-2 lg:col-span-4"><label className="admin-label" htmlFor="provenance">Provenance</label><textarea id="provenance" value={car.provenance} onChange={(event) => setField("provenance", event.target.value)} className="admin-field mt-2 min-h-32 resize-y" /></div>
+                  </div>
                 </div>
                 <div className="mt-9 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"><Button variant="outline" disabled={saving} onClick={() => void saveAndGo(1)} className="h-14 border-black/16 bg-white px-6 text-base text-[#1a1c1b] hover:bg-[#f1eee7]"><ArrowLeft className="mr-2 size-5" />Back</Button><Button disabled={saving} onClick={() => void saveAndGo(3)} className="h-14 bg-[#1a1c1b] px-7 text-base text-white hover:bg-[#343735]">{saving ? "Saving…" : "Save and continue"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button></div>
               </div>
