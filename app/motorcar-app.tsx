@@ -728,9 +728,8 @@ type SavedFileDetail = {
 };
 
 function registryCategoryForFile(file: SavedFileDetail): FileCategory {
-  if (file.category !== "records") return file.category as FileCategory;
   const prefix = file.filename.match(/^(\d{2})_/)?.[1];
-  return ({
+  const packetCategory = ({
     "01": "title",
     "02": "registration",
     "03": "bill_of_sale",
@@ -743,7 +742,8 @@ function registryCategoryForFile(file: SavedFileDetail): FileCategory {
     "10": "photo_manifest",
     "11": "provenance",
     "12": "application",
-  } as Record<string, FileCategory>)[prefix || ""] || "records";
+  } as Record<string, FileCategory>)[prefix || ""];
+  return packetCategory || (file.category as FileCategory) || "records";
 }
 
 function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnView }: { setView: (view: View) => void; existingCarId: string | null; onCarCreated: (id: string) => void; signInPath: string; returnView: "desk" | "admin" }) {
