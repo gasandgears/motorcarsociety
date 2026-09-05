@@ -1269,6 +1269,58 @@ function Membership({ account, setAccount, signInPath, setView }: { account: Mem
   );
 }
 
+function parseContactCsv(source: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === '"' && quoted && source[index + 1] === '"') { field += '"'; index += 1; }
+    else if (character === '"') quoted = !quoted;
+    else if (character === "," && !quoted) { row.push(field.trim()); field = ""; }
+    else if ((character === "\n" || character === "\r") && !quoted) { if (character === "\r" && source[index + 1] === "\n") index += 1; row.push(field.trim()); if (row.some(Boolean)) rows.push(row); row = []; field = ""; }
+    else field += character;
+  }
+  row.push(field.trim());
+  if (row.some(Boolean)) rows.push(row);
+  if (!rows.length) return [];
+  const headers = rows[0].map((value) => value.toLowerCase().replace(/[^a-z]/g, ""));
+  const emailIndex = headers.findIndex((value) => ["email", "emailaddress", "email1"].includes(value));
+  const nameIndex = headers.findIndex((value) => ["name", "fullname", "clientname", "contact"].includes(value));
+  const firstIndex = headers.findIndex((value) => ["firstname", "first"].includes(value));
+  const lastIndex = headers.findIndex((value) => ["lastname", "last"].includes(value));
+  const phoneIndex = headers.findIndex((value) => ["phone", "phonenumber", "mobile", "cell"].includes(value));
+  if (emailIndex < 0) throw new Error("The CSV needs a column named Email or Email Address.");
+  return rows.slice(1).map((values) => ({ email: values[emailIndex] || "", name: nameIndex >= 0 ? values[nameIndex] || "" : [values[firstIndex] || "", values[lastIndex] || ""].filter(Boolean).join(" "), phone: phoneIndex >= 0 ? values[phoneIndex] || "" : "" })).filter((contact) => contact.email);
+}
+
+function ContactImport({ onImported }: { onImported: () => void }) {
+  const [contacts, setContacts] = useState<{ email: string; name: string; phone: string }[]>([]);
+  const [filename, setFilename] = useState("");
+  const [permission, setPermission] = useState("needs_review");
+  const [source, setSource] = useState("Barnaby client list");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const selectFile = async (file: File | undefined) => {
+    if (!file) return;
+    try { setContacts(parseContactCsv(await file.text())); setFilename(file.name); setMessage(""); }
+    catch (caught) { setContacts([]); setMessage(caught instanceof Error ? caught.message : "That CSV could not be read."); }
+  };
+  const importList = async () => {
+    setSaving(true); setMessage("");
+    try {
+      const response = await fetch("/api/admin/contacts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ contacts, permission, source }) });
+      const payload = await response.json() as { imported?: number; skipped?: number; error?: string };
+      if (!response.ok) throw new Error(payload.error || "The list could not be imported.");
+      setMessage(`${payload.imported || 0} contacts imported${payload.skipped ? `; ${payload.skipped} skipped` : ""}. No emails have been sent.`);
+      onImported();
+    } catch (caught) { setMessage(caught instanceof Error ? caught.message : "The list could not be imported."); }
+    finally { setSaving(false); }
+  };
+  return <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7"><h2 className="font-display text-3xl">Import client contacts</h2><p className="mt-3 max-w-3xl leading-7 text-black/58">Upload a CSV with an Email or Email Address column. Names and phone numbers are optional. Contacts remain invitation records until they create their own secure account.</p><div className="mt-6 grid gap-5 lg:grid-cols-[1fr_13rem_15rem_auto] lg:items-end"><div><label className="admin-label">CSV file</label><label className="mt-2 flex min-h-12 cursor-pointer items-center rounded-lg border border-dashed border-black/20 bg-white px-4 font-semibold hover:border-[#806c49]"><Upload className="mr-2 size-5 text-[#806c49]" />{filename || "Choose contact list"}<input type="file" accept=".csv,text/csv" className="sr-only" onChange={(event) => void selectFile(event.target.files?.[0])} /></label></div><div><label className="admin-label">List source</label><input value={source} onChange={(event) => setSource(event.target.value)} className="admin-field mt-2 h-12" /></div><div><label className="admin-label">Email permission</label><NativeSelect value={permission} onChange={(event) => setPermission(event.target.value)} className="mt-2 h-12 w-full border-black/15"><NativeSelectOption value="needs_review">Needs review</NativeSelectOption><NativeSelectOption value="existing_client">Existing client relationship</NativeSelectOption><NativeSelectOption value="confirmed_opt_in">Confirmed opt-in</NativeSelectOption><NativeSelectOption value="unsubscribed">Do not contact</NativeSelectOption></NativeSelect></div><Button disabled={!contacts.length || saving} onClick={importList} className="h-12 bg-[#806c49] text-white hover:bg-[#695737]">{saving ? "Importing…" : `Import ${contacts.length || ""}`}</Button></div>{message && <p className="mt-5 rounded-lg border border-black/10 bg-white p-4 text-sm" role="status">{message}</p>}<p className="mt-4 text-sm leading-6 text-black/48">Automated marketing should only use contacts whose permission is confirmed. Every message must include an unsubscribe path.</p></section>;
+}
+
 function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
   const [members, setMembers] = useState<MemberAccount[]>([]);
   const [cars, setCars] = useState<RegistryCar[]>([]);
@@ -1329,6 +1381,7 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Dean only</p>
         <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><h1 className="font-display text-5xl sm:text-6xl">Admin Console</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-black/58">Approve member access, assign tiers, and keep staff permissions separate.</p></div><Button onClick={() => onOpenCar("")} className="h-13 bg-[#1a1c1b] px-6 text-white hover:bg-[#343735]">Create car file</Button></div>
         {error && <p className="mt-7 rounded-lg border border-red-700/20 bg-red-700/8 p-4 text-sm text-red-800">{error}</p>}
+        <ContactImport onImported={() => undefined} />
         <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl">Registry releases</h2><span className="rounded-full bg-black/6 px-3 py-1.5 text-sm font-semibold">{cars.length} car files</span></div>
           {cars.length === 0 ? <p className="mt-7 text-black/50">Create the first car file when an owner is ready.</p> : <div className="mt-6 space-y-3">{cars.map((car) => <article key={car.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto] lg:items-end"><div><p className="font-display text-2xl">{car.year} {car.make} {car.model}</p><p className="mt-1 text-sm text-black/48">{car.detail || "Location not entered"}</p></div><div><label className="admin-label">Audience</label><NativeSelect value={car.visibility} onChange={(event) => updateCarLocal(car.id, "visibility", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="private">Private match</NativeSelectOption><NativeSelectOption value="members">Members</NativeSelectOption><NativeSelectOption value="public">Public</NativeSelectOption></NativeSelect></div><div><label className="admin-label">Status</label><NativeSelect value={car.status} onChange={(event) => updateCarLocal(car.id, "status", event.target.value)} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="intake">Intake</NativeSelectOption><NativeSelectOption value="review">Review</NativeSelectOption><NativeSelectOption value="ready">Ready</NativeSelectOption><NativeSelectOption value="released">Released</NativeSelectOption></NativeSelect></div><Button variant="outline" onClick={() => onOpenCar(car.id)} className="h-11 border-black/15">Open file</Button><Button disabled={savingId === car.id} onClick={() => releaseCar(car)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === car.id ? "Saving…" : "Save release"}</Button></article>)}</div>}

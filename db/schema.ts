@@ -37,6 +37,26 @@ export const wantedProfiles = sqliteTable(
   (table) => [uniqueIndex("idx_wanted_profiles_user_id").on(table.userId)],
 );
 
+export const mailingContacts = sqliteTable(
+  "mailing_contacts",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    displayName: text("display_name").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    source: text("source").notNull().default("client list"),
+    permission: text("permission").notNull().default("needs_review"),
+    inviteStatus: text("invite_status").notNull().default("not_sent"),
+    unsubscribedAt: integer("unsubscribed_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("idx_mailing_contacts_email").on(table.email),
+    index("idx_mailing_contacts_permission_status").on(table.permission, table.inviteStatus),
+  ],
+);
+
 export const cars = sqliteTable(
   "cars",
   {
