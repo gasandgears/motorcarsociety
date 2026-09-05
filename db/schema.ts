@@ -29,6 +29,8 @@ export const wantedProfiles = sqliteTable(
     marques: text("marques").notNull().default(""),
     specificCar: text("specific_car").notNull().default(""),
     valueRange: text("value_range").notNull().default("500-1500"),
+    acquisitionLow: text("acquisition_low").notNull().default(""),
+    acquisitionHigh: text("acquisition_high").notNull().default(""),
     era: text("era").notNull().default("postwar"),
     primaryInterest: text("primary_interest").notNull().default("important"),
     createdAt: integer("created_at").notNull(),

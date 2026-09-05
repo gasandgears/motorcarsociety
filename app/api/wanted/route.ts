@@ -6,6 +6,10 @@ import { cleanText, getAuthenticatedUser, getOrCreateAccount, serverError, unaut
 
 export const dynamic = "force-dynamic";
 
+function cleanAmount(value: unknown) {
+  return cleanText(value, 24).replace(/[$,\s]/g, "").replace(/[^0-9.]/g, "");
+}
+
 export async function GET(request: Request) {
   if (!getAuthenticatedUser(request)) return unauthorized();
   try {
@@ -27,7 +31,11 @@ export async function PUT(request: Request) {
     const marques = Array.isArray(body.marques)
       ? Array.from(new Set(body.marques.map((item) => cleanText(item, 80)).filter(Boolean))).slice(0, 30)
       : [];
-    const valueRange = ["250-500", "500-1500", "1500-5000", "5000+"].includes(String(body.valueRange)) ? String(body.valueRange) : "500-1500";
+    const acquisitionLow = cleanAmount(body.acquisitionLow);
+    const acquisitionHigh = cleanAmount(body.acquisitionHigh);
+    if (acquisitionLow && acquisitionHigh && Number(acquisitionLow) > Number(acquisitionHigh)) {
+      return Response.json({ error: "The high end of your range must be greater than the low end." }, { status: 400 });
+    }
     const era = ["prewar", "postwar", "seventies", "modern", "any"].includes(String(body.era)) ? String(body.era) : "postwar";
     const primaryInterest = ["important", "competition", "preservation", "concours", "any"].includes(String(body.primaryInterest)) ? String(body.primaryInterest) : "important";
     const now = Date.now();
@@ -36,7 +44,9 @@ export async function PUT(request: Request) {
       userId: account.userId,
       marques: marques.join("|"),
       specificCar: cleanText(body.specificCar, 240),
-      valueRange,
+      valueRange: "custom",
+      acquisitionLow,
+      acquisitionHigh,
       era,
       primaryInterest,
       createdAt: now,
@@ -47,7 +57,9 @@ export async function PUT(request: Request) {
       set: {
         marques: values.marques,
         specificCar: values.specificCar,
-        valueRange,
+        valueRange: "custom",
+        acquisitionLow,
+        acquisitionHigh,
         era,
         primaryInterest,
         updatedAt: now,

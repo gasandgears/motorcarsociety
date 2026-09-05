@@ -38,7 +38,7 @@ export async function POST(request: Request, context: RouteContext) {
     const filename = safeFilename(request.headers.get("x-file-name") || "upload");
     const contentType = (request.headers.get("content-type") || "application/octet-stream").slice(0, 160);
     const suppliedCategory = request.headers.get("x-file-category") || "records";
-    const category = ["photos", "title", "numbers", "history", "video", "records"].includes(suppliedCategory) ? suppliedCategory : "records";
+    const category = ["photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video", "records"].includes(suppliedCategory) ? suppliedCategory : "records";
     const fileId = crypto.randomUUID();
     const storageKey = `cars/${carId}/${fileId}`;
 

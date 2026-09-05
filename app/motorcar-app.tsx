@@ -309,7 +309,8 @@ function WantedList({ userEmail, signInPath }: { userEmail: string | null; signI
   const [error, setError] = useState("");
   const [choices, setChoices] = useState<string[]>([]);
   const [specificCar, setSpecificCar] = useState("");
-  const [valueRange, setValueRange] = useState("500-1500");
+  const [acquisitionLow, setAcquisitionLow] = useState("");
+  const [acquisitionHigh, setAcquisitionHigh] = useState("");
   const [era, setEra] = useState("postwar");
   const [primaryInterest, setPrimaryInterest] = useState("important");
 
@@ -318,12 +319,13 @@ function WantedList({ userEmail, signInPath }: { userEmail: string | null; signI
     let active = true;
     fetch("/api/wanted", { cache: "no-store" })
       .then(async (response) => {
-        const payload = await response.json() as { profile?: { marques: string; specificCar: string; valueRange: string; era: string; primaryInterest: string }; error?: string };
+        const payload = await response.json() as { profile?: { marques: string; specificCar: string; acquisitionLow: string; acquisitionHigh: string; era: string; primaryInterest: string }; error?: string };
         if (!response.ok) throw new Error(payload.error || "Your Wanted List could not be loaded.");
         if (active && payload.profile) {
           setChoices(payload.profile.marques.split("|").filter(Boolean));
           setSpecificCar(payload.profile.specificCar);
-          setValueRange(payload.profile.valueRange);
+          setAcquisitionLow(payload.profile.acquisitionLow || "");
+          setAcquisitionHigh(payload.profile.acquisitionHigh || "");
           setEra(payload.profile.era);
           setPrimaryInterest(payload.profile.primaryInterest);
         }
@@ -344,7 +346,7 @@ function WantedList({ userEmail, signInPath }: { userEmail: string | null; signI
       const response = await fetch("/api/wanted", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ marques: choices, specificCar, valueRange, era, primaryInterest }),
+        body: JSON.stringify({ marques: choices, specificCar, acquisitionLow, acquisitionHigh, era, primaryInterest }),
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || "Your Wanted List could not be saved.");
@@ -399,10 +401,11 @@ function WantedList({ userEmail, signInPath }: { userEmail: string | null; signI
             <div className="mt-9 grid gap-7 sm:grid-cols-2">
               <div><label className="block text-base font-semibold text-white" htmlFor="specific-car">Specific car</label><input id="specific-car" value={specificCar} onChange={(event) => { setSpecificCar(event.target.value); setSaved(false); }} className="field mt-3" placeholder="Example: 1967 Ferrari 275 GTB/4" /></div>
               <div>
-                <label className="block text-base font-semibold text-white" htmlFor="value-range">Acquisition range</label>
-                <NativeSelect id="value-range" className="field mt-3" value={valueRange} onChange={(event) => { setValueRange(event.target.value); setSaved(false); }}>
-                  <NativeSelectOption value="250-500">$250,000–$500,000</NativeSelectOption><NativeSelectOption value="500-1500">$500,000–$1.5 million</NativeSelectOption><NativeSelectOption value="1500-5000">$1.5–$5 million</NativeSelectOption><NativeSelectOption value="5000+">Above $5 million</NativeSelectOption>
-                </NativeSelect>
+                <span className="block text-base font-semibold text-white">Acquisition range</span>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div><label className="field-label text-sm" htmlFor="range-low">Low</label><div className="relative mt-2"><span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/45">$</span><input id="range-low" inputMode="numeric" value={acquisitionLow} onChange={(event) => { setAcquisitionLow(event.target.value); setSaved(false); }} className="field pl-8" placeholder="250,000" /></div></div>
+                  <div><label className="field-label text-sm" htmlFor="range-high">High</label><div className="relative mt-2"><span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/45">$</span><input id="range-high" inputMode="numeric" value={acquisitionHigh} onChange={(event) => { setAcquisitionHigh(event.target.value); setSaved(false); }} className="field pl-8" placeholder="750,000" /></div></div>
+                </div>
               </div>
               <div>
                 <label className="block text-base font-semibold text-white" htmlFor="era">Preferred era</label>
@@ -434,7 +437,7 @@ function WantedList({ userEmail, signInPath }: { userEmail: string | null; signI
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-white/45">Current profile</p>
               <div className="mt-5 space-y-4 text-base">
                 <div className="flex justify-between gap-3"><span className="text-white/55">Marques</span><span className="text-right text-white">{choices.length || "None"}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-white/55">Range</span><span className="text-right text-white">{{"250-500":"$250K–$500K","500-1500":"$500K–$1.5M","1500-5000":"$1.5M–$5M","5000+":"$5M+"}[valueRange]}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-white/55">Range</span><span className="text-right text-white">{acquisitionLow || acquisitionHigh ? `${acquisitionLow ? `$${acquisitionLow}` : "Open"} – ${acquisitionHigh ? `$${acquisitionHigh}` : "Open"}` : "Not set"}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-white/55">Alert order</span><span className="text-right text-white">Private Match</span></div>
               </div>
             </div>
@@ -646,20 +649,38 @@ const intakeSteps = [
 ];
 
 const fileChecklist = [
-  { id: "photos", label: "Exterior and interior photos", help: "JPG, PNG or HEIC", accept: "image/*", icon: Camera },
-  { id: "title", label: "Title or registration", help: "Scan, photograph or choose a PDF", accept: "image/*,application/pdf", icon: FileText },
-  { id: "numbers", label: "VIN, engine and chassis numbers", help: "Detail photos or PDF", accept: "image/*,application/pdf", icon: CarFront },
-  { id: "history", label: "Service and ownership records", help: "Receipts, history and supporting files", accept: "image/*,application/pdf", icon: FolderOpen },
-  { id: "video", label: "Walkaround video", help: "Video from the phone or files", accept: "video/*", icon: Upload },
+  { id: "photos", label: "Vehicle photography", help: "Exterior, interior, engine bay and detail images", accept: "image/*", icon: Camera },
+  { id: "title", label: "Ownership or title evidence", help: "Title evidence or equivalent ownership record", accept: "image/*,application/pdf", icon: FileText },
+  { id: "registration", label: "Current registration evidence", help: "Current registration or applicable equivalent", accept: "image/*,application/pdf", icon: FileText },
+  { id: "bill_of_sale", label: "Bill of sale or transfer record", help: "Latest purchase or transfer record", accept: "image/*,application/pdf", icon: FileCheck2 },
+  { id: "ownership_history", label: "Ownership history", help: "Known owners and chain of custody", accept: "image/*,application/pdf", icon: FolderOpen },
+  { id: "identity", label: "Vehicle identity verification", help: "VIN, chassis, data plate and body stampings", accept: "image/*,application/pdf", icon: CarFront },
+  { id: "drivetrain", label: "Engine and drivetrain verification", help: "Engine, transmission and axle identification", accept: "image/*,application/pdf", icon: Gauge },
+  { id: "restoration_history", label: "Restoration history", help: "Work history, dates and supporting records", accept: "image/*,application/pdf", icon: FolderOpen },
+  { id: "restoration_invoice", label: "Restoration invoices", help: "Invoices and receipts supporting completed work", accept: "image/*,application/pdf", icon: FileText },
+  { id: "condition", label: "Condition inspection", help: "Current inspection or condition report", accept: "image/*,application/pdf", icon: ClipboardCheck },
+  { id: "photo_manifest", label: "Photo documentation manifest", help: "Index of identity and condition photographs", accept: "image/*,application/pdf", icon: Camera },
+  { id: "provenance", label: "Provenance narrative", help: "Written history and significance of the vehicle", accept: "image/*,application/pdf", icon: FileText },
+  { id: "application", label: "Registry intake application", help: "Completed and signed Registry application", accept: "image/*,application/pdf", icon: FileCheck2 },
+  { id: "video", label: "Walkaround video", help: "Optional video from the phone or files", accept: "video/*", icon: Upload },
 ] as const;
 
 type FileCategory = (typeof fileChecklist)[number]["id"] | "records";
 
 const fileCategoryLabels: Record<FileCategory, string> = {
   photos: "Photos",
-  title: "Title / registration",
-  numbers: "Numbers",
-  history: "Service / ownership",
+  title: "Ownership / title",
+  registration: "Registration",
+  bill_of_sale: "Bill of sale",
+  ownership_history: "Ownership history",
+  identity: "Identity verification",
+  drivetrain: "Engine / drivetrain",
+  restoration_history: "Restoration history",
+  restoration_invoice: "Restoration invoice",
+  condition: "Condition inspection",
+  photo_manifest: "Photo manifest",
+  provenance: "Provenance",
+  application: "Registry application",
   video: "Walkaround video",
   records: "Other document",
 };
@@ -788,7 +809,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
   const carName = [car.year, car.make, car.model].filter(Boolean).join(" ") || "New motorcar";
   const coreComplete = [car.year, car.make, car.model, car.owner, car.phone, car.price].filter(Boolean).length;
   const completedCount = Math.min(3, Math.ceil(coreComplete / 2)) + received.length;
-  const completion = Math.round((completedCount / 8) * 100);
+  const completion = Math.round((completedCount / (3 + fileChecklist.length)) * 100);
 
   const saveCar = async (status = "intake", receivedOverride = received, visibilityOverride = visibility) => {
     if (!savedCarId) return false;
@@ -1060,7 +1081,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
                             <p className="mt-1 text-sm text-black/45">{savedCount ? `${savedCount} file${savedCount === 1 ? "" : "s"} saved` : item.help}</p>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {(item.id === "title" || item.id === "numbers" || item.id === "history") && (
+                            {item.id !== "photos" && item.id !== "video" && (
                               <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-black/14 bg-white px-4 text-sm font-semibold hover:border-[#806c49]">
                                 <Camera className="mr-2 size-4" />Scan / photograph
                                 <input
