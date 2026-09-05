@@ -40,6 +40,25 @@ export const wantedProfiles = sqliteTable(
   (table) => [uniqueIndex("idx_wanted_profiles_user_id").on(table.userId)],
 );
 
+export const wantedVehicles = sqliteTable(
+  "wanted_vehicles",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => accounts.userId, { onDelete: "cascade" }),
+    year: text("year").notNull().default(""),
+    make: text("make").notNull().default(""),
+    model: text("model").notNull().default(""),
+    variant: text("variant").notNull().default(""),
+    acquisitionLow: text("acquisition_low").notNull().default(""),
+    acquisitionHigh: text("acquisition_high").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    status: text("status").notNull().default("active"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [index("idx_wanted_vehicles_user").on(table.userId, table.status), index("idx_wanted_vehicles_make_model").on(table.make, table.model)],
+);
+
 export const mailingContacts = sqliteTable(
   "mailing_contacts",
   {
