@@ -22,7 +22,7 @@ export async function GET(request: Request, context: RouteContext) {
     const photos = await getDb().select({ id: carFiles.id, filename: carFiles.filename })
       .from(carFiles)
       .where(and(eq(carFiles.carId, id), eq(carFiles.category, "photos")))
-      .orderBy(asc(carFiles.createdAt));
+      .orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt));
 
     return Response.json({
       car: {

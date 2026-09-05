@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carFiles } from "@/db/schema";
@@ -13,7 +13,7 @@ export async function GET(request: Request, context: RouteContext) {
   if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
   try {
     const { id } = await context.params;
-    const files = await getDb().select().from(carFiles).where(eq(carFiles.carId, id)).orderBy(desc(carFiles.createdAt));
+    const files = await getDb().select().from(carFiles).where(eq(carFiles.carId, id)).orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt));
     return Response.json({ files });
   } catch (error) {
     return serverError(error, "The uploaded files could not be loaded.");
@@ -57,6 +57,7 @@ export async function POST(request: Request, context: RouteContext) {
       category,
       uploadedBy: user.id,
       uploadedByEmail: user.email,
+      sortOrder: Date.now(),
       createdAt: Date.now(),
     };
 
@@ -69,5 +70,22 @@ export async function POST(request: Request, context: RouteContext) {
     }
   } catch (error) {
     return serverError(error, "The file could not be uploaded. Please try again.");
+  }
+}
+
+export async function PATCH(request: Request, context: RouteContext) {
+  if (!getAuthenticatedUser(request)) return unauthorized();
+  if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
+  try {
+    const { id: carId } = await context.params;
+    const body = await request.json() as { photoIds?: unknown };
+    const photoIds = Array.isArray(body.photoIds) ? body.photoIds.filter((id): id is string => typeof id === "string") : [];
+    if (!photoIds.length || photoIds.length > 250 || new Set(photoIds).size !== photoIds.length) return Response.json({ error: "Choose a valid photo order." }, { status: 400 });
+    const matching = await getDb().select({ id: carFiles.id }).from(carFiles).where(and(eq(carFiles.carId, carId), eq(carFiles.category, "photos"), inArray(carFiles.id, photoIds)));
+    if (matching.length !== photoIds.length) return Response.json({ error: "One or more photos do not belong to this car." }, { status: 400 });
+    for (const [index, id] of photoIds.entries()) await getDb().update(carFiles).set({ sortOrder: index + 1 }).where(eq(carFiles.id, id));
+    return Response.json({ saved: true, photoIds });
+  } catch (error) {
+    return serverError(error, "The photo order could not be saved.");
   }
 }

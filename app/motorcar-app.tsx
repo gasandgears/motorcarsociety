@@ -861,6 +861,7 @@ type SavedFileDetail = {
   sizeBytes: number;
   contentType: string;
   category: string;
+  sortOrder: number;
 };
 
 function registryCategoryForFile(file: SavedFileDetail): FileCategory {
@@ -882,7 +883,7 @@ function registryCategoryForFile(file: SavedFileDetail): FileCategory {
   return packetCategory || (file.category as FileCategory) || "records";
 }
 
-function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnView }: { setView: (view: View) => void; existingCarId: string | null; onCarCreated: (id: string) => void; signInPath: string; returnView: "desk" | "admin" }) {
+function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath, returnView }: { setView: (view: View) => void; existingCarId: string | null; onCarCreated: (id: string) => void; onPreview: (id: string) => void; signInPath: string; returnView: "desk" | "admin" }) {
   const returnLabel = returnView === "admin" ? "Admin Console" : "Barnaby’s Desk";
   const [step, setStep] = useState(1);
   const [recordCreated, setRecordCreated] = useState(false);
@@ -895,6 +896,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
   const [loadingCar, setLoadingCar] = useState(Boolean(existingCarId));
   const [saveError, setSaveError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
+  const [photoOrdering, setPhotoOrdering] = useState(false);
   const [car, setCar] = useState({
     year: "",
     make: "",
@@ -993,6 +995,32 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
   const coreComplete = [car.year, car.make, car.model, car.owner, car.phone, car.price].filter(Boolean).length;
   const completedCount = Math.min(3, Math.ceil(coreComplete / 2)) + received.length;
   const completion = Math.round((completedCount / (3 + fileChecklist.length)) * 100);
+  const photoUploads = uploads.filter((file) => file.category === "photos");
+
+  const savePhotoOrder = async (orderedPhotos: IntakeUpload[]) => {
+    if (!savedCarId || orderedPhotos.some((file) => !file.serverId)) return;
+    setPhotoOrdering(true);
+    setSaveError("");
+    try {
+      const response = await fetch(`/api/cars/${savedCarId}/files`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ photoIds: orderedPhotos.map((file) => file.serverId) }) });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "The photo order could not be saved.");
+      setSaveNotice("Photo order saved");
+    } catch (caught) { setSaveError(caught instanceof Error ? caught.message : "The photo order could not be saved."); }
+    finally { setPhotoOrdering(false); }
+  };
+
+  const reorderPhoto = (photoId: string, destination: number) => {
+    const currentPhotos = uploads.filter((file) => file.category === "photos");
+    const currentIndex = currentPhotos.findIndex((file) => file.id === photoId);
+    if (currentIndex < 0) return;
+    const nextPhotos = [...currentPhotos];
+    const [moved] = nextPhotos.splice(currentIndex, 1);
+    nextPhotos.splice(Math.max(0, Math.min(destination, nextPhotos.length)), 0, moved);
+    let photoIndex = 0;
+    setUploads((current) => current.map((file) => file.category === "photos" ? nextPhotos[photoIndex++] : file));
+    void savePhotoOrder(nextPhotos);
+  };
 
   const saveCar = async (status = "intake", receivedOverride = received, visibilityOverride = visibility) => {
     if (!savedCarId) return false;
@@ -1356,6 +1384,16 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
                             <div className="grid h-32 place-items-center bg-black/[0.035]"><FileText className="size-9 text-[#806c49]" /></div>
                           )}
                           <button disabled={file.status === "uploading"} onClick={() => removeUpload(file.id)} aria-label={`Remove ${file.name}`} className="absolute right-2 top-2 grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black disabled:cursor-wait disabled:opacity-40"><X className="size-5" /></button>
+                          {file.category === "photos" && (() => {
+                            const photoIndex = photoUploads.findIndex((photo) => photo.id === file.id);
+                            return <div className="absolute bottom-[5.55rem] left-2 right-2 flex items-center justify-between gap-2">
+                              {photoIndex === 0 ? <span className="rounded-full bg-[var(--gold)] px-3 py-2 text-xs font-bold text-[#111] shadow-lg">Cover photo</span> : <button type="button" disabled={photoOrdering || file.status !== "saved"} onClick={() => reorderPhoto(file.id, 0)} className="rounded-full bg-black/72 px-3 py-2 text-xs font-bold text-white shadow-lg hover:bg-black disabled:opacity-40">Make cover</button>}
+                              <div className="flex gap-1">
+                                <button type="button" disabled={photoOrdering || photoIndex === 0 || file.status !== "saved"} onClick={() => reorderPhoto(file.id, photoIndex - 1)} aria-label={`Move ${file.name} earlier`} className="grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black disabled:opacity-35"><ChevronLeft className="size-5" /></button>
+                                <button type="button" disabled={photoOrdering || photoIndex === photoUploads.length - 1 || file.status !== "saved"} onClick={() => reorderPhoto(file.id, photoIndex + 1)} aria-label={`Move ${file.name} later`} className="grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black disabled:opacity-35"><ChevronRight className="size-5" /></button>
+                              </div>
+                            </div>;
+                          })()}
                           <div className="p-3">
                             <p className="truncate text-sm font-semibold" title={file.name}>{file.name}</p>
                             <p className="mt-1 truncate text-xs font-semibold text-[#806c49]">{fileCategoryLabels[file.category]}</p>
@@ -1393,7 +1431,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
                 </div>
                 <div className="mt-9 flex flex-col gap-3 border-t border-black/8 pt-7 sm:flex-row sm:items-center sm:justify-between">
                   <Button variant="outline" disabled={saving} onClick={() => void saveAndGo(3)} className="h-14 border-black/16 bg-white px-6 text-base text-[#1a1c1b] hover:bg-[#f1eee7]"><ArrowLeft className="mr-2 size-5" />Back to files</Button>
-                  <div className="sm:text-right"><p className="mb-3 text-sm leading-6 text-black/45">The seller’s approval is still required before any public release.</p><Button disabled={saving || uploads.some((file) => file.status === "uploading")} onClick={async () => { if (await saveCar("review")) setSubmitted(true); }} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : "Send to Dean"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button></div>
+                  <div className="sm:text-right"><p className="mb-3 text-sm leading-6 text-black/45">The seller’s approval is still required before any public release.</p><div className="flex flex-col gap-3 sm:flex-row"><Button variant="outline" disabled={saving || !savedCarId} onClick={async () => { if (savedCarId && await saveCar()) onPreview(savedCarId); }} className="h-14 border-black/16 bg-white px-6 text-base text-[#1a1c1b] hover:bg-[#f1eee7]">Preview member listing</Button><Button disabled={saving || uploads.some((file) => file.status === "uploading")} onClick={async () => { if (await saveCar("review")) setSubmitted(true); }} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : "Send to Dean"} {!saving && <ArrowRight className="ml-2 size-5" />}</Button></div></div>
                 </div>
               </div>
             )}
@@ -1689,7 +1727,7 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail }: { si
       {view === "wanted" && <WantedList userEmail={userEmail} signInPath={signInPath} />}
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
       {view === "admin" && canAccessAdmin && <AdminConsole onOpenCar={(id) => { setActiveCarId(id || null); setView("intake"); }} />}
-      {view === "intake" && canManageCars && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} returnView={canAccessAdmin ? "admin" : "desk"} />}
+      {view === "intake" && canManageCars && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} onPreview={(id) => { setRegistryCarId(id); setView("vehicle"); window.scrollTo({ top: 0 }); }} returnView={canAccessAdmin ? "admin" : "desk"} />}
       {view === "membership" && <Membership key={account?.updatedAt || account?.userId || "anonymous"} account={account} setAccount={setAccount} signInPath={signInPath} signOutPath={signOutPath} setView={setView} />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">

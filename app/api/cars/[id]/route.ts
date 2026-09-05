@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carFiles, cars } from "@/db/schema";
@@ -17,7 +17,7 @@ export async function GET(request: Request, context: RouteContext) {
     const { id } = await context.params;
     const [car] = await getDb().select().from(cars).where(eq(cars.id, id)).limit(1);
     if (!car) return Response.json({ error: "Car file not found." }, { status: 404 });
-    const files = await getDb().select().from(carFiles).where(eq(carFiles.carId, id)).orderBy(desc(carFiles.createdAt));
+    const files = await getDb().select().from(carFiles).where(eq(carFiles.carId, id)).orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt));
     return Response.json({ car, files });
   } catch (error) {
     return serverError(error, "The car file could not be loaded.");

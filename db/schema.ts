@@ -113,6 +113,7 @@ export const carFiles = sqliteTable(
     category: text("category").notNull(),
     uploadedBy: text("uploaded_by").notNull(),
     uploadedByEmail: text("uploaded_by_email").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [
