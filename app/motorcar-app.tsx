@@ -64,13 +64,13 @@ type RegistryCar = { id: string; year: string; make: string; model: string; deta
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid h-11 w-11 place-items-center rounded-full border border-[var(--gold)] text-[13px] font-semibold tracking-[0.14em] text-[var(--gold-light)]">
+    <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--gold)] text-xs font-semibold tracking-[0.14em] text-[var(--gold-light)] sm:h-11 sm:w-11 sm:text-[13px]">
         MS
       </div>
-      <div className="text-left">
-        <div className="font-display text-[1.15rem] leading-none tracking-[0.04em]">MOTORCAR SOCIETY</div>
-        <div className="mt-1.5 text-[0.72rem] font-semibold tracking-[0.23em] text-[var(--gold-light)]">PRIVATE REGISTRY</div>
+      <div className="min-w-0 text-left">
+        <div className="whitespace-nowrap font-display text-base leading-none tracking-[0.03em] sm:text-[1.15rem] sm:tracking-[0.04em]">MOTORCAR SOCIETY</div>
+        <div className="mt-1.5 whitespace-nowrap text-[0.62rem] font-semibold tracking-[0.18em] text-[var(--gold-light)] sm:text-[0.72rem] sm:tracking-[0.23em]">PRIVATE REGISTRY</div>
       </div>
     </div>
   );
@@ -129,11 +129,20 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
       {mobileOpen && (
         <div className="border-t border-white/10 px-5 py-4 lg:hidden">
           <nav className="grid gap-2" aria-label="Mobile navigation">
-            {[...links, { id: "membership" as View, label: userEmail ? "My Account" : "Apply / Sign In" }].map((link) => (
+            {links.map((link) => (
               <Button key={link.id} variant="ghost" onClick={() => selectView(link.id)} className="h-13 justify-between px-3 text-base text-white">
                 {link.label}<ChevronRight className="size-5" />
               </Button>
             ))}
+            {userEmail ? (
+              <Button variant="ghost" onClick={() => selectView("membership")} className="h-13 justify-between px-3 text-base text-white">
+                My Account<ChevronRight className="size-5" />
+              </Button>
+            ) : (
+              <a href={signInPath} target="_top" className="mt-2 inline-flex min-h-13 items-center justify-between rounded-lg bg-[var(--gold)] px-4 text-base font-semibold text-[#111]">
+                Member Sign In<ArrowRight className="size-5" />
+              </a>
+            )}
           </nav>
         </div>
       )}
@@ -893,7 +902,9 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
       sourceFile: file,
     }));
     setUploads((current) => [...current, ...selected]);
-    await Promise.all(selected.map((item) => uploadFile(item, savedCarId)));
+    for (const item of selected) {
+      await uploadFile(item, savedCarId);
+    }
   };
 
   const removeUpload = async (id: string) => {
@@ -913,11 +924,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
     setUploads((current) => {
       if (target.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(target.previewUrl);
       const remaining = current.filter((file) => file.id !== id);
-      if (!remaining.some((file) => file.type.startsWith("image/"))) {
-        setReceived((items) => items.filter((item) => item !== "photos"));
-      }
-      if (!remaining.some((file) => file.type.startsWith("video/"))) {
-        setReceived((items) => items.filter((item) => item !== "video"));
+      if (target.category !== "records" && !remaining.some((file) => file.category === target.category && file.status === "saved")) {
+        setReceived((items) => items.filter((item) => item !== target.category));
       }
       return remaining;
     });
@@ -1187,7 +1195,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, signInPath, returnVie
   );
 }
 
-function Membership({ account, setAccount, signInPath, setView }: { account: MemberAccount | null; setAccount: (account: MemberAccount) => void; signInPath: string; setView: (view: View) => void }) {
+function Membership({ account, setAccount, signInPath, signOutPath, setView }: { account: MemberAccount | null; setAccount: (account: MemberAccount) => void; signInPath: string; signOutPath: string; setView: (view: View) => void }) {
   const [displayName, setDisplayName] = useState(account?.displayName || "");
   const [phone, setPhone] = useState(account?.phone || "");
   const [location, setLocation] = useState(account?.location || "");
@@ -1262,6 +1270,7 @@ function Membership({ account, setAccount, signInPath, setView }: { account: Mem
           {error && <p className="mt-6 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
           <Button disabled={saving} onClick={submit} className="mt-8 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : saved ? "Account Saved" : approved ? "Save Account" : "Submit for Review"} {!saving && (saved ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />)}</Button>
           {approved && <Button variant="outline" onClick={() => setView("wanted")} className="mt-3 h-14 w-full border-white/18 bg-transparent text-white hover:bg-white hover:text-black">Open My Wanted List</Button>}
+          <a href={signOutPath} target="_top" className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg text-sm font-semibold text-white/58 transition hover:bg-white/6 hover:text-white">Sign out or switch account</a>
           <p className="mt-5 text-center text-sm leading-6 text-white/43">Applications are reviewed by the Motorcar Society team. No automatic approvals or charges.</p>
         </section>
       </div>
@@ -1395,10 +1404,11 @@ function AdminConsole({ onOpenCar }: { onOpenCar: (id: string) => void }) {
   );
 }
 
-export default function MotorcarApp({ signInPath, userEmail }: { signInPath: string; userEmail: string | null }) {
+export default function MotorcarApp({ signInPath, signOutPath, userEmail }: { signInPath: string; signOutPath: string; userEmail: string | null }) {
   const [view, setView] = useState<View>("registry");
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
-  const initialRole: MemberAccount["role"] | null = !userEmail ? null : userEmail.trim().toLowerCase() === "deank@kirklanddigital.com" ? "admin" : userEmail.trim().toLowerCase() === "deankirkland@me.com" ? "barnaby" : "applicant";
+  const normalizedEmail = userEmail?.trim().toLowerCase() ?? null;
+  const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deankirkland@me.com" || normalizedEmail === "deank@kirklanddigital.com" ? "admin" : "applicant";
   const [account, setAccount] = useState<MemberAccount | null>(initialRole ? { userId: "", email: userEmail!, displayName: userEmail!.split("@")[0], phone: "", location: "", collectionNotes: "", role: initialRole, tier: initialRole === "admin" ? "leadership" : initialRole === "barnaby" ? "staff" : "none", status: initialRole === "applicant" ? "pending" : "approved", createdAt: 0, updatedAt: 0 } : null);
   useEffect(() => {
     if (!userEmail) return;
@@ -1421,7 +1431,7 @@ export default function MotorcarApp({ signInPath, userEmail }: { signInPath: str
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
       {view === "admin" && canAccessAdmin && <AdminConsole onOpenCar={(id) => { setActiveCarId(id || null); setView("intake"); }} />}
       {view === "intake" && canManageCars && <CarIntake signInPath={signInPath} setView={setView} existingCarId={activeCarId} onCarCreated={setActiveCarId} returnView={canAccessAdmin ? "admin" : "desk"} />}
-      {view === "membership" && <Membership key={account?.updatedAt || account?.userId || "anonymous"} account={account} setAccount={setAccount} signInPath={signInPath} setView={setView} />}
+      {view === "membership" && <Membership key={account?.updatedAt || account?.userId || "anonymous"} account={account} setAccount={setAccount} signInPath={signInPath} signOutPath={signOutPath} setView={setView} />}
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">
           <Brand />

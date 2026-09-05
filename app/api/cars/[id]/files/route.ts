@@ -30,7 +30,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (!(await carExists(carId))) return Response.json({ error: "Car file not found." }, { status: 404 });
     if (!request.body) return Response.json({ error: "Choose a file to upload." }, { status: 400 });
 
-    const sizeBytes = Number(request.headers.get("content-length") || request.headers.get("x-file-size") || 0);
+    const sizeBytes = Number(request.headers.get("x-file-size") || request.headers.get("content-length") || 0);
     const maximumSize = 150 * 1024 * 1024;
     if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return Response.json({ error: "The file size could not be read." }, { status: 400 });
     if (sizeBytes > maximumSize) return Response.json({ error: "Files must be 150 MB or smaller." }, { status: 413 });
