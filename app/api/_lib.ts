@@ -31,9 +31,11 @@ export async function getOrCreateAccount(request: Request): Promise<Account | nu
   if (!user) return null;
   const email = user.email.trim().toLowerCase();
   const now = Date.now();
-  const bootstrap = email === "deankirkland@me.com" || email === "deank@kirklanddigital.com"
+  const bootstrap = email === "deank@kirklanddigital.com"
     ? { role: "admin", tier: "leadership", status: "approved" }
-    : { role: "applicant", tier: "none", status: "pending" };
+    : email === "deankirkland@me.com"
+      ? { role: "member", tier: "standard", status: "approved" }
+      : { role: "applicant", tier: "none", status: "pending" };
   const db = getDb();
   await db.insert(accounts).values({
     userId: user.id,
