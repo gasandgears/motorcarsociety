@@ -13,5 +13,5 @@
 - [x] Preserve search, import, matching, and release behavior
 - [x] Update architecture documentation
 - [x] Run build and tests
-- [ ] Apply production migration and deploy
-- [ ] Verify live desktop and phone flows
+- [x] Apply production migration and deploy
+- [x] Verify live desktop and phone flows

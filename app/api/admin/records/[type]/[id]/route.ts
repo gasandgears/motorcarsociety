@@ -12,7 +12,6 @@ const configs = {
   accounts: { table: "accounts", id: "user_id", fields: ["display_name", "phone", "location", "collection_notes", "role", "tier", "status"], statuses: ["pending", "approved", "denied"] },
 } as const;
 
-function snake(value: string) { return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`); }
 async function authorize(request: Request) {
   const user = getAuthenticatedUser(request); if (!user) return { response: unauthorized() };
   const account = await getOrCreateAccount(request); if (!isAdmin(account)) return { response: forbidden() };
