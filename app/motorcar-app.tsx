@@ -237,7 +237,6 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
     heroImageUrl: car.heroImageUrl,
     code: (car.make || car.model || "M").charAt(0).toUpperCase(),
   }));
-  const heroMessage = SOCIETY_HERO_IMAGES[heroIndex];
   return (
     <main>
       <section className="relative min-h-[42rem] overflow-hidden border-b border-white/10 lg:min-h-[46rem]">
@@ -257,30 +256,23 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
         <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(7,8,8,0.88)_0%,transparent_35%)]" />
 
         <div className="relative mx-auto flex min-h-[42rem] max-w-[90rem] items-end px-5 pb-10 pt-28 sm:px-8 lg:min-h-[46rem] lg:items-center lg:px-12 lg:pb-0 lg:pt-0">
-          <div className="max-w-[38rem]">
-            <div className="mb-6 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold-light)]">
-              <span className="h-px w-10 bg-[var(--gold)]" />{heroMessage.eyebrow}
-            </div>
-            <h1 className="max-w-[42rem] font-display text-[clamp(3.1rem,6.2vw,6.2rem)] leading-[0.9] tracking-[-0.025em] text-white">
-              {heroMessage.title}
-              <span className="mt-2 block text-[0.62em] leading-[1.02] text-white/95">{heroMessage.secondLine}</span>
-            </h1>
-            <p className="mt-7 max-w-[34rem] text-lg leading-8 text-white/76 sm:text-xl">
-              {heroMessage.body}
-            </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button onClick={() => document.getElementById("registry-list")?.scrollIntoView({ behavior: "smooth" })} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">
-                Explore the Registry<ArrowRight className="ml-2 size-5" />
-              </Button>
-              {showMemberActions && <Button
-                variant="outline"
-                onClick={() => setView("membership")}
-                className="h-14 border-white/24 bg-black/20 px-7 text-base text-white hover:bg-white hover:text-black"
-              >
-                Membership
-              </Button>}
-            </div>
+          <div className="relative h-[31rem] w-full max-w-[38rem] sm:h-[28rem] lg:h-[30rem]">
+            {SOCIETY_HERO_IMAGES.map((message, index) => (
+              <div key={message.src} aria-hidden={index !== heroIndex} className={`absolute inset-0 flex flex-col justify-end transition-[opacity,transform] duration-1000 ease-out motion-reduce:transition-none lg:justify-center ${index === heroIndex ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
+                <div className="mb-6 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold-light)]">
+                  <span className="h-px w-10 bg-[var(--gold)]" />{message.eyebrow}
+                </div>
+                <h1 className="max-w-[42rem] font-display text-[clamp(3.1rem,6.2vw,6.2rem)] leading-[0.9] tracking-[-0.025em] text-white">
+                  {message.title}
+                  <span className="mt-2 block text-[0.62em] leading-[1.02] text-white/95">{message.secondLine}</span>
+                </h1>
+                <p className="mt-7 max-w-[34rem] text-lg leading-8 text-white/76 sm:text-xl">{message.body}</p>
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <Button tabIndex={index === heroIndex ? 0 : -1} onClick={() => document.getElementById("registry-list")?.scrollIntoView({ behavior: "smooth" })} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">Explore the Registry<ArrowRight className="ml-2 size-5" /></Button>
+                  {showMemberActions && <Button tabIndex={index === heroIndex ? 0 : -1} variant="outline" onClick={() => setView("membership")} className="h-14 border-white/24 bg-black/20 px-7 text-base text-white hover:bg-white hover:text-black">Membership</Button>}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
