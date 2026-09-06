@@ -22,3 +22,14 @@ test("keeps public footer destinations available", async () => {
   const shell = await readFile(new URL("../components/public-page-shell.tsx", import.meta.url), "utf8");
   for (const path of ["/about", "/privacy", "/terms", "/contact", "/submit-a-car"]) assert.match(shell, new RegExp(path.replaceAll("/", "\\/")));
 });
+
+test("uses compact linked admin records with dedicated detail pages", async () => {
+  const consoleSource = await readFile(new URL("../app/motorcar-app.tsx", import.meta.url), "utf8");
+  const detailSource = await readFile(new URL("../components/admin-record-detail.tsx", import.meta.url), "utf8");
+  for (const section of ["dossier-requests", "vehicle-submissions", "contacts", "wanted-list", "registry-releases", "accounts"]) {
+    assert.match(consoleSource, new RegExp(`/admin/${section}/`));
+    assert.match(detailSource, new RegExp(`${section.replace("-", "-")}`));
+  }
+  assert.match(detailSource, /Internal notes/);
+  assert.match(detailSource, /Permanently delete/);
+});

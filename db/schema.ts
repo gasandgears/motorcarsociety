@@ -101,6 +101,21 @@ export const vehicleSubmissions = pgTable(
   (table) => [index("idx_vehicle_submissions_status_created").on(table.status, table.createdAt)],
 );
 
+export const adminRecordNotes = pgTable(
+  "admin_record_notes",
+  {
+    id: text("id").primaryKey(),
+    recordType: text("record_type").notNull(),
+    recordId: text("record_id").notNull(),
+    note: text("note").notNull(),
+    authorId: text("author_id").notNull(),
+    authorEmail: text("author_email").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (table) => [index("idx_admin_record_notes_record_created").on(table.recordType, table.recordId, table.createdAt)],
+);
+
 export const cars = pgTable(
   "cars",
   {

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carFiles, cars } from "@/db/schema";
-import { cleanText, forbidden, getAuthenticatedUser, getBucket, getOrCreateAccount, isAdmin, serverError, unauthorized } from "../../../_lib";
+import { cleanText, db, forbidden, getAuthenticatedUser, getBucket, getOrCreateAccount, isAdmin, serverError, unauthorized } from "../../../_lib";
 
 export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ id: string }> };
@@ -36,6 +36,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     const files = await getDb().select({ storageKey: carFiles.storageKey }).from(carFiles).where(eq(carFiles.carId, id));
     for (const file of files) await getBucket().delete(file.storageKey);
     await getDb().delete(cars).where(eq(cars.id, id));
+    await db().from("admin_record_notes").delete().eq("record_type", "registry-releases").eq("record_id", id);
     return Response.json({ deleted: true, registryId: car.registryId });
   } catch (error) {
     return serverError(error, "The car file could not be deleted.");

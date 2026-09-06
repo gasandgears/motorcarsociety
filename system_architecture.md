@@ -17,3 +17,11 @@ The `/submit-a-car` form creates a record in `vehicle_submissions`; it never cre
 ## Public information pages
 
 About, Privacy, Terms, Contact, and Submit a Car share `components/public-page-shell.tsx`. Barnaby Brokaw is the public contact at `bbforcars@gmail.com` and `619-518-2469`.
+
+## Admin record workspaces
+
+Each Admin Console collection is a compact line-item list. Stable detail URLs use `/admin/[section]/[id]` and are rendered by `components/admin-record-detail.tsx`. The generic admin record API uses a fixed whitelist of tables and editable fields; route parameters can never select arbitrary database tables or columns.
+
+Internal notes live in `admin_record_notes` and are keyed by record type and record ID. They are available only through administrator-authorized APIs. Deleting an ordinary record also removes its internal notes. Registry car deletion continues through the car-specific endpoint so media is removed from private storage first.
+
+Account deletion removes the Supabase Auth identity and relies on existing cascading relationships for account-owned data. The administrator accounts for `deank@kirklanddigital.com` and `bbforcars@gmail.com` are protected from deletion and from losing approved Admin status.

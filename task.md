@@ -1,14 +1,17 @@
-# Public information pages
+# Admin Record Workspace
 
-- [x] Confirm current membership status, role, and tier behavior
-- [x] Add shared public page navigation and footer
-- [x] Add About and membership levels page
-- [x] Add Privacy page
-- [x] Add Terms page
-- [x] Add Contact page with Barnaby's details
-- [x] Add Submit a Car page and form
-- [x] Add private vehicle submission storage and API
-- [x] Update existing site links
-- [x] Update architecture notes
+- [x] Map existing record types, APIs, and permissions
+- [x] Add shared internal notes storage
+- [x] Add protected generic admin record API
+- [x] Add dedicated detail routes and editor
+- [x] Convert Dossier Requests to compact rows
+- [x] Convert Vehicle Submissions to compact rows
+- [x] Convert Client Contacts to compact rows
+- [x] Convert Member Wanted List to compact rows
+- [x] Convert Registry Releases to compact rows
+- [x] Convert Accounts to compact rows
+- [x] Preserve search, import, matching, and release behavior
+- [x] Update architecture documentation
 - [x] Run build and tests
-- [x] Verify desktop and phone layouts
+- [ ] Apply production migration and deploy
+- [ ] Verify live desktop and phone flows
