@@ -21,6 +21,7 @@ import {
   LockKeyhole,
   Menu,
   Mail,
+  Pause,
   Phone,
   Play,
   Search,
@@ -208,11 +209,12 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (heroPaused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => setHeroIndex((current) => (current + 1) % SOCIETY_HERO_IMAGES.length), 6500);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [heroPaused]);
   useEffect(() => {
     let active = true;
     const query = new URLSearchParams({ page: String(page) });
@@ -281,6 +283,9 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
         </div>
 
         <div className="absolute bottom-8 right-8 hidden items-center gap-2 sm:flex" aria-label="Choose hero image">
+          <button onClick={() => setHeroPaused((paused) => !paused)} aria-label={heroPaused ? "Play rotating hero images" : "Pause rotating hero images"} aria-pressed={heroPaused} className="mr-2 grid size-10 place-items-center rounded-full border border-white/20 bg-black/35 text-white/75 backdrop-blur-sm transition hover:bg-black/65 hover:text-white">
+            {heroPaused ? <Play className="size-4 fill-current" /> : <Pause className="size-4 fill-current" />}
+          </button>
           {SOCIETY_HERO_IMAGES.map((image, index) => (
             <button key={image.src} onClick={() => setHeroIndex(index)} aria-label={`Show image ${index + 1} of ${SOCIETY_HERO_IMAGES.length}`} aria-current={index === heroIndex} className={`h-1 rounded-full transition-all ${index === heroIndex ? "w-10 bg-[var(--gold-light)]" : "w-5 bg-white/35 hover:bg-white/65"}`} />
           ))}
