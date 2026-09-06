@@ -1018,6 +1018,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const [saveError, setSaveError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
   const [photoOrdering, setPhotoOrdering] = useState(false);
+  const [generatingHero, setGeneratingHero] = useState(false);
   const [car, setCar] = useState({
     year: "",
     make: "",
@@ -1124,7 +1125,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const completedCount = Math.min(3, Math.ceil(coreComplete / 2)) + received.length;
   const completion = Math.round((completedCount / (3 + fileChecklist.length)) * 100);
   const photoUploads = uploads.filter((file) => file.category === "photos");
-  const currentHeroId = [...uploads].reverse().find((file) => file.category === "hero" && file.status === "saved")?.id;
+  const currentHero = [...uploads].reverse().find((file) => file.category === "hero" && file.status === "saved");
+  const currentHeroId = currentHero?.id;
 
   const savePhotoOrder = async (orderedPhotos: IntakeUpload[]) => {
     if (!savedCarId || orderedPhotos.some((file) => !file.serverId)) return;
@@ -1305,6 +1307,25 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
       }
       return remaining;
     });
+  };
+
+  const generateSocietyHero = async () => {
+    if (!savedCarId || !currentHero?.serverId) return;
+    setGeneratingHero(true);
+    setSaveError("");
+    setSaveNotice("");
+    try {
+      const response = await fetch(`/api/cars/${savedCarId}/generate-hero`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sourceFileId: currentHero.serverId }) });
+      const data = await response.json() as { file?: { id: string; filename: string; sizeBytes: number; contentType: string }; error?: string };
+      if (!response.ok || !data.file) throw new Error(data.error || "The Motorcar Society hero could not be generated.");
+      setUploads((items) => [...items, { id: `saved-${data.file!.id}`, serverId: data.file!.id, name: data.file!.filename, size: data.file!.sizeBytes, type: data.file!.contentType, previewUrl: `/api/files/${data.file!.id}`, category: "hero", status: "saved", sourceFile: null }]);
+      setReceived((items) => items.includes("hero") ? items : [...items, "hero"]);
+      setSaveNotice("New Motorcar Society hero created and selected");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "The Motorcar Society hero could not be generated.");
+    } finally {
+      setGeneratingHero(false);
+    }
   };
 
   const goTo = (next: number) => {
@@ -1497,6 +1518,13 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             </button>
                           </div>
                         </div>
+                        {item.id === "hero" && <div className="mt-4 rounded-lg border border-[#806c49]/20 bg-white/70 p-4">
+                          <p className="text-sm leading-6 text-black/58">After uploading the real car photo, create a new version in the same private-gallery setting, lighting and color treatment as the homepage. The original stays saved.</p>
+                          <button type="button" disabled={!currentHero?.serverId || generatingHero} onClick={() => void generateSocietyHero()} className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-[var(--gold)] px-4 text-sm font-bold text-[#111] hover:bg-[var(--gold-light)] disabled:cursor-not-allowed disabled:opacity-45">
+                            <Camera className="mr-2 size-4" />{generatingHero ? "Creating hero… this may take a minute" : "Create Motorcar Society Hero"}
+                          </button>
+                          {!currentHero?.serverId && <p className="mt-2 text-xs text-black/42">Upload and save a JPG, PNG or WebP image first.</p>}
+                        </div>}
                         {item.id !== "hero" && item.id !== "photos" && item.id !== "video" && <div className="mt-4 border-t border-black/8 pt-4">
                           <div className="flex items-center justify-between gap-3"><label className="admin-label" htmlFor={`requirement-${item.id}`}>Manual entry or document details</label>{requirementNotes[item.id] && <span className="text-xs font-semibold text-[#60765c]">Editable document text</span>}</div>
                           <textarea id={`requirement-${item.id}`} value={requirementNotes[item.id] || ""} onChange={(event) => setRequirementNotes((current) => ({ ...current, [item.id]: event.target.value }))} onBlur={() => void saveRequirementEntry(item.id)} className="admin-field mt-2 min-h-28 resize-y" placeholder={`Enter ${item.label.toLowerCase()} manually, or upload a text-based PDF to prefill this field.`} />
