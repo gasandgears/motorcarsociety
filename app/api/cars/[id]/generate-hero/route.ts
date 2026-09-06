@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import sharp from "sharp";
 
 import { getDb } from "@/db";
 import { carFiles } from "@/db/schema";
@@ -27,10 +28,11 @@ export async function POST(request: Request, context: RouteContext) {
     const stored = await getBucket().get(source.storageKey);
     if (!stored) return Response.json({ error: "The cover photo could not be loaded." }, { status: 404 });
     const sourceBytes = await new Response(stored.body).arrayBuffer();
+    const normalizedSource = await sharp(Buffer.from(sourceBytes)).rotate().png().toBuffer();
     const form = new FormData();
     form.append("model", "gpt-image-1.5");
     form.append("prompt", HERO_PROMPT);
-    form.append("image", new File([sourceBytes], source.filename, { type: source.contentType }));
+    form.append("image", new File([Uint8Array.from(normalizedSource)], "registry-cover.png", { type: "image/png" }));
     form.append("input_fidelity", "high");
     form.append("quality", "medium");
     form.append("size", "1536x1024");
