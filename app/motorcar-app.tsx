@@ -1993,10 +1993,10 @@ function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void;
   );
 }
 
-export default function MotorcarApp({ signInPath, signOutPath, userEmail, initialCarId = null, initialAdminSection = null }: { signInPath: string; signOutPath: string; userEmail: string | null; initialCarId?: string | null; initialAdminSection?: AdminSection | null }) {
-  const [view, setView] = useState<View>(initialCarId ? "vehicle" : initialAdminSection ? "admin" : "registry");
+export default function MotorcarApp({ signInPath, signOutPath, userEmail, initialCarId = null, initialAdminSection = null, initialEditCarId = null }: { signInPath: string; signOutPath: string; userEmail: string | null; initialCarId?: string | null; initialAdminSection?: AdminSection | null; initialEditCarId?: string | null }) {
+  const [view, setView] = useState<View>(initialEditCarId ? "intake" : initialCarId ? "vehicle" : initialAdminSection ? "admin" : "registry");
   const [adminSection, setAdminSection] = useState<AdminSection>(initialAdminSection || "dossier-requests");
-  const [activeCarId, setActiveCarId] = useState<string | null>(null);
+  const [activeCarId, setActiveCarId] = useState<string | null>(initialEditCarId);
   const [registryCarId, setRegistryCarId] = useState<string | null>(initialCarId);
   const normalizedEmail = userEmail?.trim().toLowerCase() ?? null;
   const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deank@kirklanddigital.com" || normalizedEmail === "bbforcars@gmail.com" ? "admin" : normalizedEmail === "deankirkland@me.com" ? "member" : "applicant";
