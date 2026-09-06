@@ -4,13 +4,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Motorcar Society Private Registry",
   description:
-    "Private collector-car sales, matched directly to verified members.",
+    "A private collector-car community dedicated to provenance, trusted relationships, and preserving the stories of remarkable motorcars.",
   other: {
     "codex-preview": "development",
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/motorcar-society-mark.png",
+    shortcut: "/motorcar-society-mark.png",
+    apple: "/motorcar-society-mark.png",
   },
 };
 

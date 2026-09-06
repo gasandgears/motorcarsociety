@@ -78,9 +78,7 @@ type RegistryCar = { id: string; year: string; make: string; model: string; deta
 function Brand() {
   return (
     <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--gold)] text-xs font-semibold tracking-[0.14em] text-[var(--gold-light)] sm:h-11 sm:w-11 sm:text-[13px]">
-        MS
-      </div>
+      <img src="/motorcar-society-mark.png" alt="" className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11" />
       <div className="min-w-0 text-left">
         <div className="whitespace-nowrap font-display text-base leading-none tracking-[0.03em] sm:text-[1.15rem] sm:tracking-[0.04em]">MOTORCAR SOCIETY</div>
         <div className="mt-1.5 whitespace-nowrap text-[0.62rem] font-semibold tracking-[0.18em] text-[var(--gold-light)] sm:text-[0.72rem] sm:tracking-[0.23em]">PRIVATE REGISTRY</div>
