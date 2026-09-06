@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   Clock3,
+  Copy,
   FileCheck2,
   FileText,
   FolderOpen,
@@ -19,9 +20,11 @@ import {
   ListChecks,
   LockKeyhole,
   Menu,
+  Mail,
   Phone,
   Play,
   Search,
+  Share2,
   ShieldCheck,
   Trash2,
   Upload,
@@ -399,6 +402,9 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   const [error, setError] = useState("");
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareNote, setShareNote] = useState("I thought you might like this car in the Motorcar Society Private Registry.");
+  const [linkCopied, setLinkCopied] = useState(false);
   const numericPrice = Number(car?.expectedPrice?.replace(/[$,\s]/g, ""));
   const priceGuidance = car?.expectedPrice && Number.isFinite(numericPrice) ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(numericPrice) : car?.expectedPrice || "On request";
   const highlights = car?.highlights.split("\n").map((item) => item.replace(/^[-•]\s*/, "").trim()).filter(Boolean) || [];
@@ -430,6 +436,14 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
       setRequested(true);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Your request could not be saved."); }
     finally { setRequesting(false); }
+  };
+  const shareUrl = `https://motorcarsociety.vercel.app/registry/${carId}`;
+  const emailSubject = `A Motorcar Society car for you: ${car?.year || ""} ${car?.make || ""} ${car?.model || ""}`.trim();
+  const emailBody = `${shareNote}\n\nView the car here:\n${shareUrl}\n\nYou will need to sign in or create a basic account to view this private Registry car.`;
+  const copyShareLink = async () => {
+    await navigator.clipboard.writeText(shareUrl);
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 2500);
   };
 
   if (loading) return <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-14 text-white sm:px-8 lg:px-12"><div className="mx-auto h-[38rem] max-w-[90rem] animate-pulse rounded-2xl bg-white/5" /></main>;
@@ -464,6 +478,24 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
             <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
             {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
             {userEmail ? <Button disabled={requesting || requested} onClick={() => void requestDossier()} className="mt-7 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{requesting ? "Sending request…" : requested ? "Dossier requested" : "Request Private Dossier"}{requested ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />}</Button> : <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111]">Sign in to request dossier<ArrowRight className="ml-2 size-5" /></a>}
+            {userEmail && <Dialog>
+              <DialogTrigger asChild><Button variant="outline" className="mt-3 h-14 w-full border-white/18 bg-transparent text-base text-white hover:bg-white hover:text-black"><Share2 className="mr-2 size-5" />Share this car</Button></DialogTrigger>
+              <DialogContent className="max-h-[90vh] overflow-y-auto border-white/12 bg-[#171918] p-6 text-white sm:max-w-lg sm:p-8">
+                <DialogHeader><DialogTitle className="font-display text-4xl font-normal">Share this car</DialogTitle><DialogDescription className="mt-2 text-base leading-7 text-white/60">Send the private car page to someone you think may like it.</DialogDescription></DialogHeader>
+                <ol className="mt-6 space-y-3">
+                  {["Enter their email address.", "Add a short note if you want.", "Press Open email, then press Send in your email app."].map((instruction, index) => <li key={instruction} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.035] p-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--gold)] font-bold text-[#111]">{index + 1}</span><span className="text-sm font-semibold">{instruction}</span></li>)}
+                </ol>
+                <div className="mt-6 space-y-5">
+                  <div><label className="field-label" htmlFor="share-email">Their email address</label><input id="share-email" type="email" value={shareEmail} onChange={(event) => setShareEmail(event.target.value)} className="field mt-2" placeholder="friend@example.com" /></div>
+                  <div><label className="field-label" htmlFor="share-note">Your note</label><textarea id="share-note" value={shareNote} onChange={(event) => setShareNote(event.target.value)} className="field mt-2 min-h-28 resize-y" /></div>
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-white/40">Important</p><p className="mt-2 text-sm leading-6 text-white/65">They must sign in or create an account before they can see the car. New accounts wait for approval.</p></div>
+                </div>
+                <DialogFooter className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <Button type="button" variant="outline" onClick={() => void copyShareLink()} className="h-13 border-white/18 bg-transparent text-white hover:bg-white hover:text-black">{linkCopied ? <Check className="mr-2 size-5" /> : <Copy className="mr-2 size-5" />}{linkCopied ? "Link copied" : "Copy link"}</Button>
+                  <a href={`mailto:${encodeURIComponent(shareEmail)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`} className={`inline-flex min-h-13 items-center justify-center rounded-lg bg-[var(--gold)] px-5 font-semibold text-[#111] transition hover:bg-[var(--gold-light)] ${!shareEmail.trim() ? "pointer-events-none opacity-45" : ""}`} aria-disabled={!shareEmail.trim()}><Mail className="mr-2 size-5" />Open email</a>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>}
             <p className="mt-4 text-center text-sm leading-6 text-white/42">Requests are reviewed personally. Source documents remain restricted to Motorcar Society staff.</p>
           </aside>
         </div>
