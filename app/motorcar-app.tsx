@@ -51,7 +51,7 @@ type AdminSection = "dossier-requests" | "contacts" | "wanted-list" | "registry-
 const SHORT_DESCRIPTION_LIMIT = 449;
 const LONG_DESCRIPTION_GUIDE = 5500;
 const SOCIETY_HERO_IMAGES = [
-  { src: "/motorcar-hero.png", alt: "Black competition sports car in the Motorcar Society gallery" },
+  { src: "/society-hero-original.jpg", alt: "Black competition sports car in the Motorcar Society gallery" },
   { src: "/society-hero-european-gt.jpg", alt: "Burgundy European grand touring coupe in the Motorcar Society gallery" },
   { src: "/society-hero-european-roadster.jpg", alt: "Silver European roadster in the Motorcar Society gallery" },
   { src: "/society-hero-european-coupe.jpg", alt: "Green European sports coupe in the Motorcar Society gallery" },
@@ -168,7 +168,7 @@ function Landing({ signInPath }: { signInPath: string }) {
   return (
     <main className="bg-[#101211] text-white">
       <section className="relative min-h-[calc(100vh-5.25rem)] overflow-hidden border-b border-white/10">
-        <img src="/motorcar-hero.png" alt="A significant competition motorcar in a private collection" className="absolute inset-0 h-full w-full object-cover object-[62%_center]" />
+        <img src="/society-hero-original.jpg" alt="A significant competition motorcar in a private collection" className="absolute inset-0 h-full w-full object-cover object-[62%_center]" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,9,9,.98)_0%,rgba(8,9,9,.9)_38%,rgba(8,9,9,.3)_72%,rgba(8,9,9,.18)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(8,9,9,.92)_0%,transparent_42%)]" />
         <div className="relative mx-auto flex min-h-[calc(100vh-5.25rem)] max-w-[90rem] items-center px-5 py-20 sm:px-8 lg:px-12">
@@ -243,6 +243,9 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
             src={image.src}
             alt={index === heroIndex ? image.alt : ""}
             aria-hidden={index !== heroIndex}
+            loading={index === 0 ? "eager" : "lazy"}
+            fetchPriority={index === 0 ? "high" : "low"}
+            decoding="async"
             className={`absolute inset-0 h-full w-full object-cover object-[63%_center] transition-[opacity,transform] duration-[1800ms] ease-out motion-reduce:transition-none ${index === heroIndex ? "scale-100 opacity-100" : "scale-[1.025] opacity-0"}`}
           />
         ))}
