@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -1019,6 +1019,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const [saveNotice, setSaveNotice] = useState("");
   const [photoOrdering, setPhotoOrdering] = useState(false);
   const [heroProcessing, setHeroProcessing] = useState(false);
+  const heroAutoStarted = useRef(false);
   const [car, setCar] = useState({
     year: "",
     make: "",
@@ -1146,6 +1147,15 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
       setHeroProcessing(false);
     }
   };
+
+  useEffect(() => {
+    if (loadingCar || heroAutoStarted.current || heroProcessing || !savedCarId) return;
+    const alreadyStyled = uploads.some((file) => file.category === "hero" && file.status === "saved" && file.name.startsWith("listing-hero-"));
+    const coverPhoto = uploads.find((file) => file.category === "photos" && file.status === "saved" && file.serverId);
+    if (alreadyStyled || !coverPhoto?.serverId) return;
+    heroAutoStarted.current = true;
+    void styleListingHero(coverPhoto.serverId, savedCarId);
+  }, [heroProcessing, loadingCar, savedCarId, uploads]);
 
   const savePhotoOrder = async (orderedPhotos: IntakeUpload[]) => {
     if (!savedCarId || orderedPhotos.some((file) => !file.serverId)) return;
