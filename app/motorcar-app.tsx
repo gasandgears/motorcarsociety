@@ -210,11 +210,26 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
   const [loading, setLoading] = useState(true);
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
+  const [heroTextPhase, setHeroTextPhase] = useState<"visible" | "exiting" | "entering">("visible");
+  const heroTransitionTimers = useRef<number[]>([]);
+  const changeHero = (nextIndex: number) => {
+    if (nextIndex === heroIndex) return;
+    heroTransitionTimers.current.forEach((timer) => window.clearTimeout(timer));
+    setHeroTextPhase("exiting");
+    const swapTimer = window.setTimeout(() => {
+      setHeroIndex(nextIndex);
+      setHeroTextPhase("entering");
+      const revealTimer = window.setTimeout(() => setHeroTextPhase("visible"), 80);
+      heroTransitionTimers.current.push(revealTimer);
+    }, 700);
+    heroTransitionTimers.current = [swapTimer];
+  };
   useEffect(() => {
     if (heroPaused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setHeroIndex((current) => (current + 1) % SOCIETY_HERO_IMAGES.length), 6500);
+    const timer = window.setInterval(() => changeHero((heroIndex + 1) % SOCIETY_HERO_IMAGES.length), 6500);
     return () => window.clearInterval(timer);
-  }, [heroPaused]);
+  }, [heroPaused, heroIndex]);
+  useEffect(() => () => heroTransitionTimers.current.forEach((timer) => window.clearTimeout(timer)), []);
   useEffect(() => {
     let active = true;
     const query = new URLSearchParams({ page: String(page) });
@@ -258,7 +273,7 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
         <div className="relative mx-auto flex min-h-[42rem] max-w-[90rem] items-end px-5 pb-10 pt-28 sm:px-8 lg:min-h-[46rem] lg:items-center lg:px-12 lg:pb-0 lg:pt-0">
           <div className="relative h-[31rem] w-full max-w-[38rem] sm:h-[28rem] lg:h-[30rem]">
             {SOCIETY_HERO_IMAGES.map((message, index) => (
-              <div key={message.src} aria-hidden={index !== heroIndex} className={`absolute inset-0 flex flex-col justify-end transition-[opacity,transform] duration-1000 ease-out motion-reduce:transition-none lg:justify-center ${index === heroIndex ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"}`}>
+              <div key={message.src} aria-hidden={index !== heroIndex || heroTextPhase !== "visible"} className={`absolute inset-0 flex flex-col justify-end transition-[opacity,transform] ease-out motion-reduce:transition-none lg:justify-center ${index === heroIndex && heroTextPhase === "visible" ? "translate-y-0 opacity-100 duration-1000" : index === heroIndex && heroTextPhase === "exiting" ? "pointer-events-none translate-y-0 opacity-0 duration-500" : "pointer-events-none translate-y-[22rem] opacity-0 duration-0"}`}>
                 <div className="mb-6 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold-light)]">
                   <span className="h-px w-10 bg-[var(--gold)]" />{message.eyebrow}
                 </div>
@@ -281,7 +296,7 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
             {heroPaused ? <Play className="size-4 fill-current" /> : <Pause className="size-4 fill-current" />}
           </button>
           {SOCIETY_HERO_IMAGES.map((image, index) => (
-            <button key={image.src} onClick={() => setHeroIndex(index)} aria-label={`Show image ${index + 1} of ${SOCIETY_HERO_IMAGES.length}`} aria-current={index === heroIndex} className={`h-1 rounded-full transition-all ${index === heroIndex ? "w-10 bg-[var(--gold-light)]" : "w-5 bg-white/35 hover:bg-white/65"}`} />
+            <button key={image.src} onClick={() => changeHero(index)} aria-label={`Show image ${index + 1} of ${SOCIETY_HERO_IMAGES.length}`} aria-current={index === heroIndex} className={`h-1 rounded-full transition-all ${index === heroIndex ? "w-10 bg-[var(--gold-light)]" : "w-5 bg-white/35 hover:bg-white/65"}`} />
           ))}
         </div>
       </section>
