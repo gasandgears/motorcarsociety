@@ -10,5 +10,5 @@
 - [x] Add private vehicle submission storage and API
 - [x] Update existing site links
 - [x] Update architecture notes
-- [ ] Run build and tests
-- [ ] Verify desktop and phone layouts
+- [x] Run build and tests
+- [x] Verify desktop and phone layouts
