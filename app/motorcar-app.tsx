@@ -296,26 +296,26 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
             <label><span className="sr-only">Filter by category</span><NativeSelect value={category} onChange={(event) => { setLoading(true); setCategory(event.target.value); setPage(1); }} className="h-12 w-full border-white/15 bg-[#181a19] text-white"><NativeSelectOption value="All">All categories</NativeSelectOption>{categories.filter((item) => item !== "Uncategorized").map((item) => <NativeSelectOption key={item} value={item}>{item}</NativeSelectOption>)}<NativeSelectOption value="Uncategorized">Uncategorized</NativeSelectOption></NativeSelect></label>
           </div>
 
-          {loading ? <div className="mt-9 grid gap-4 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-64 animate-pulse rounded-xl bg-white/5" />)}</div> : cards.length ? <div className="mt-9 grid gap-4 lg:grid-cols-3">
+          {loading ? <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-44 animate-pulse rounded-lg bg-white/5" />)}</div> : cards.length ? <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6">
             {cards.map((car) => (
               <a
                 key={car.id}
                 href={`/registry/${car.id}`}
                 onClick={(event) => { event.preventDefault(); onOpenCar(car.id); }}
-                className="group min-h-64 overflow-hidden rounded-xl border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
+                className="group min-h-44 overflow-hidden rounded-lg border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
-                <div className="flex h-28 items-center justify-between border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-6">
-                  <span className="font-display text-7xl text-white/[0.08]">{car.code}</span>
-                  <span className="rounded-full border border-white/14 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] text-white/60">{car.status}</span>
+                <div className="flex h-14 items-center justify-between border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-4">
+                  <span className="font-display text-4xl text-white/[0.08]">{car.code}</span>
+                  <span className="rounded-full border border-white/14 px-2 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.1em] text-white/60">{car.status}</span>
                 </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold tracking-[0.14em] text-[var(--gold-light)]">{car.year}</p><span className="text-xs text-white/35">{car.category}</span></div>
-                  <h3 className="mt-2 font-display text-[1.8rem] leading-tight text-white">{car.name}</h3>
-                  <div className="mt-5 flex items-center justify-between gap-4 text-[0.95rem] text-white/56">
-                    <span>{car.detail}</span><ChevronRight className="size-5 shrink-0 transition group-hover:translate-x-1 group-hover:text-white" />
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold tracking-[0.12em] text-[var(--gold-light)]">{car.year}</p><span className="truncate text-[0.65rem] text-white/35">{car.category}</span></div>
+                  <h3 className="mt-1.5 line-clamp-2 font-display text-[1.25rem] leading-tight text-white">{car.name}</h3>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-white/56">
+                    <span className="truncate">{car.detail}</span><ChevronRight className="size-4 shrink-0 transition group-hover:translate-x-1 group-hover:text-white" />
                   </div>
                 </div>
-                  <p className="mt-4 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-white/30">{car.registryId}</p>
+                <p className="px-4 pb-3 text-[0.56rem] font-semibold uppercase tracking-[0.09em] text-white/30">{car.registryId}</p>
               </a>
             ))}
           </div> : <div className="mt-9 rounded-xl border border-white/10 bg-white/[0.025] px-6 py-16 text-center"><h3 className="font-display text-3xl text-white">No vehicles found</h3><p className="mt-3 text-white/48">Try a different search or category.</p></div>}
