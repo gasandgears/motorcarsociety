@@ -7,6 +7,23 @@ import { canManageCars, carExists, forbidden, getAuthenticatedUser, getBucket, g
 
 export const dynamic = "force-dynamic";
 
+const allowedUploadTypes = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "text/csv",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+]);
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
@@ -37,12 +54,15 @@ export async function POST(request: Request, context: RouteContext) {
     if (sizeBytes > maximumSize) return Response.json({ error: "Files must be 150 MB or smaller." }, { status: 413 });
 
     const filename = safeFilename(request.headers.get("x-file-name") || "upload");
-    const contentType = (request.headers.get("content-type") || "application/octet-stream").slice(0, 160);
+    const contentType = (request.headers.get("content-type") || "application/octet-stream").split(";", 1)[0].trim().toLowerCase().slice(0, 160);
+    if (!allowedUploadTypes.has(contentType)) return Response.json({ error: "Choose a PDF, Word document, text file, photo, or supported video." }, { status: 415 });
     const suppliedCategory = request.headers.get("x-file-category") || "records";
     const category = ["photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video", "records"].includes(suppliedCategory) ? suppliedCategory : "records";
     const fileId = crypto.randomUUID();
     const storageKey = `cars/${carId}/${fileId}`;
     const bytes = new Uint8Array(await request.arrayBuffer());
+    if (!bytes.byteLength) return Response.json({ error: "The selected file is empty." }, { status: 400 });
+    if (bytes.byteLength > maximumSize) return Response.json({ error: "Files must be 150 MB or smaller." }, { status: 413 });
 
     await getBucket().put(storageKey, new Blob([bytes]).stream(), {
       httpMetadata: { contentType },

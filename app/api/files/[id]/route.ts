@@ -20,7 +20,9 @@ export async function GET(request: Request, context: RouteContext) {
     const headers = new Headers();
     object.writeHttpMetadata(headers);
     headers.set("Cache-Control", "private, max-age=300");
-    headers.set("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+    const safeInlineTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/webm"]);
+    headers.set("Content-Disposition", `${safeInlineTypes.has(file.contentType) ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+    headers.set("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:");
     headers.set("X-Content-Type-Options", "nosniff");
     return new Response(object.body, { headers });
   } catch (error) {
