@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       year: cars.year,
       make: cars.make,
       model: cars.model,
-    }).from(dossierRequests).innerJoin(cars, eq(dossierRequests.carId, cars.id)).orderBy(desc(dossierRequests.updatedAt)).limit(100);
+    }).from(dossierRequests).innerJoin(cars, eq(dossierRequests.carId, cars.id)).orderBy(desc(dossierRequests.updatedAt)).limit(1000);
     return Response.json({ requests });
   } catch (error) {
     return serverError(error, "Dossier requests could not be loaded.");
