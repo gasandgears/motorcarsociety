@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (!getAuthenticatedUser(request)) return unauthorized();
   if (!canManageCars(await getOrCreateAccount(request))) return forbidden();
   try {
-    const results = await getDb().select().from(cars).orderBy(desc(cars.updatedAt)).limit(50);
+    const results = await getDb().select().from(cars).orderBy(desc(cars.updatedAt)).limit(1000);
     return Response.json({ cars: results });
   } catch (error) {
     return serverError(error, "Saved car files are temporarily unavailable.");
