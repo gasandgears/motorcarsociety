@@ -85,7 +85,7 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
   const [mobileOpen, setMobileOpen] = useState(false);
   const links: { id: View; label: string }[] = [
     { id: "registry", label: "The Registry" },
-    { id: "wanted", label: "Wanted List" },
+    ...(!canAccessDesk && !canAccessAdmin ? [{ id: "wanted" as View, label: "Wanted List" }] : []),
     ...(canAccessDesk ? [{ id: "desk" as View, label: "Barnaby’s Desk" }] : []),
     ...(canAccessAdmin ? [{ id: "admin" as View, label: "Admin Console" }] : []),
   ];
@@ -191,7 +191,7 @@ function Landing({ signInPath }: { signInPath: string }) {
   );
 }
 
-function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpenCar: (id: string) => void }) {
+function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (view: View) => void; onOpenCar: (id: string) => void; showMemberActions?: boolean }) {
   const [registryCars, setRegistryCars] = useState<RegistryCar[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -278,13 +278,13 @@ function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpe
                   </div>
                 </DialogContent>
               </Dialog>
-              <Button
+              {showMemberActions && <Button
                 variant="outline"
                 onClick={() => setView("membership")}
                 className="h-14 border-white/24 bg-black/20 px-7 text-base text-white hover:bg-white hover:text-black"
               >
                 Apply for Membership
-              </Button>
+              </Button>}
             </div>
           </div>
         </div>
@@ -334,7 +334,7 @@ function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpe
         </div>
       </section>
 
-      <section className="bg-[#e9e5dc] px-5 py-16 text-[#171918] sm:px-8 lg:px-12 lg:py-20">
+      {showMemberActions && <section className="bg-[#e9e5dc] px-5 py-16 text-[#171918] sm:px-8 lg:px-12 lg:py-20">
         <div className="mx-auto grid max-w-[90rem] gap-10 lg:grid-cols-[1fr_1.15fr] lg:items-center">
           <div>
             <p className="eyebrow text-[#756242]">The advantage</p>
@@ -360,7 +360,7 @@ function Registry({ setView, onOpenCar }: { setView: (view: View) => void; onOpe
             ))}
           </div>
         </div>
-      </section>
+      </section>}
     </main>
   );
 }
@@ -1655,21 +1655,27 @@ function Membership({ account, setAccount, signInPath, signOutPath, setView }: {
   }
 
   const approved = account.status === "approved";
+  const staffAccount = account.role === "admin" || account.role === "barnaby";
   return (
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
         <section className="lg:sticky lg:top-32">
-          <p className="eyebrow">Membership</p>
-          <h1 className="mt-4 font-display text-5xl leading-[0.98] text-white sm:text-6xl">Direct access. Quietly handled.</h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-white/63">Every account is reviewed individually. Your approved level controls what appears in the Registry and which private services are available.</p>
+          <p className="eyebrow">{staffAccount ? "Administration" : "Membership"}</p>
+          <h1 className="mt-4 font-display text-5xl leading-[0.98] text-white sm:text-6xl">{staffAccount ? "Your staff account." : "Direct access. Quietly handled."}</h1>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-white/63">{staffAccount ? "Manage your contact details and secure access to Motorcar Society administration." : "Every account is reviewed individually. Your approved level controls what appears in the Registry and which private services are available."}</p>
           <div className="mt-7 inline-flex rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">{approved ? `${account.tier === "leadership" ? "Leadership" : account.tier === "staff" ? "Staff" : account.tier === "private" ? "Private Client" : account.tier === "priority" ? "Priority Member" : "Verified Member"} · Approved` : account.status === "denied" ? "Application not approved" : "Application pending review"}</div>
           <div className="mt-9 space-y-4">
-            {[
+            {(staffAccount ? [
+              [ShieldCheck, "Registry administration"],
+              [FileText, "Private dossier management"],
+              [UserRoundCheck, "Member access controls"],
+              [CarFront, "Secure vehicle files"],
+            ] : [
               [UserRoundCheck, "Personally reviewed membership"],
               [LockKeyhole, "Private vehicle dossiers"],
               [BellRing, "Matched early-access releases"],
               [Phone, "Direct specialist contact"],
-            ].map(([Icon, label]) => {
+            ]).map(([Icon, label]) => {
               const Component = Icon as typeof UserRoundCheck;
               return <div key={label as string} className="flex items-center gap-4 text-base text-white/78"><Component className="size-5 text-[var(--gold-light)]" />{label as string}</div>;
             })}
@@ -1677,19 +1683,19 @@ function Membership({ account, setAccount, signInPath, signOutPath, setView }: {
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-[#181a19] p-6 sm:p-8">
-          <h2 className="font-display text-3xl text-white">{approved ? "Your member account" : "Complete your application"}</h2>
+          <h2 className="font-display text-3xl text-white">{staffAccount ? "Your staff account" : approved ? "Your member account" : "Complete your application"}</h2>
           <div className="mt-7 grid gap-6 sm:grid-cols-2">
             <div className="sm:col-span-2"><label htmlFor="display-name" className="field-label">Name</label><input id="display-name" value={displayName} onChange={(event) => { setDisplayName(event.target.value); setSaved(false); }} className="field mt-2" /></div>
             <div><label htmlFor="email" className="field-label">Email</label><input id="email" type="email" value={account.email} readOnly className="field mt-2 opacity-65" /></div>
             <div><label htmlFor="phone" className="field-label">Phone</label><input id="phone" type="tel" value={phone} onChange={(event) => { setPhone(event.target.value); setSaved(false); }} className="field mt-2" /></div>
             <div className="sm:col-span-2"><label htmlFor="location" className="field-label">City and country</label><input id="location" value={location} onChange={(event) => { setLocation(event.target.value); setSaved(false); }} className="field mt-2" placeholder="Newport Beach, United States" /></div>
-            <div className="sm:col-span-2"><label htmlFor="collection" className="field-label">Tell us what you collect</label><textarea id="collection" value={collectionNotes} onChange={(event) => { setCollectionNotes(event.target.value); setSaved(false); }} className="field mt-2 min-h-32 resize-y" placeholder="Current collection, preferred marques and cars you are seeking" /></div>
+            {!staffAccount && <div className="sm:col-span-2"><label htmlFor="collection" className="field-label">Tell us what you collect</label><textarea id="collection" value={collectionNotes} onChange={(event) => { setCollectionNotes(event.target.value); setSaved(false); }} className="field mt-2 min-h-32 resize-y" placeholder="Current collection, preferred marques and cars you are seeking" /></div>}
           </div>
           {error && <p className="mt-6 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
           <Button disabled={saving} onClick={submit} className="mt-8 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{saving ? "Saving…" : saved ? "Account Saved" : approved ? "Save Account" : "Submit for Review"} {!saving && (saved ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />)}</Button>
-          {approved && <Button variant="outline" onClick={() => setView("wanted")} className="mt-3 h-14 w-full border-white/18 bg-transparent text-white hover:bg-white hover:text-black">Open My Wanted List</Button>}
+          {approved && !staffAccount && <Button variant="outline" onClick={() => setView("wanted")} className="mt-3 h-14 w-full border-white/18 bg-transparent text-white hover:bg-white hover:text-black">Open My Wanted List</Button>}
           <a href={signOutPath} target="_top" className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg text-sm font-semibold text-white/58 transition hover:bg-white/6 hover:text-white">Sign out or switch account</a>
-          <p className="mt-5 text-center text-sm leading-6 text-white/43">Applications are reviewed by the Motorcar Society team. No automatic approvals or charges.</p>
+          <p className="mt-5 text-center text-sm leading-6 text-white/43">{staffAccount ? "Staff access is managed securely by Motorcar Society." : "Applications are reviewed by the Motorcar Society team. No automatic approvals or charges."}</p>
         </section>
       </div>
     </main>
@@ -1929,7 +1935,7 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
   return (
     <div className="min-h-screen bg-[#101211]">
       <Header view={view} setView={(next) => { if (view === "vehicle") window.history.pushState({}, "", "/"); setView(next); }} canAccessDesk={canAccessDesk} canAccessAdmin={canAccessAdmin} userEmail={userEmail} signInPath={signInPath} />
-      {view === "registry" && (userEmail ? <Registry setView={setView} onOpenCar={openVehiclePage} /> : <Landing signInPath={signInPath} />)}
+      {view === "registry" && (userEmail ? <Registry setView={setView} onOpenCar={openVehiclePage} showMemberActions={!canAccessDesk && !canAccessAdmin} /> : <Landing signInPath={signInPath} />)}
       {view === "vehicle" && registryCarId && <RegistryVehicle carId={registryCarId} userEmail={userEmail} signInPath={signInPath} onBack={returnToRegistry} />}
       {view === "wanted" && <WantedVehicleList userEmail={userEmail} signInPath={signInPath} />}
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}
