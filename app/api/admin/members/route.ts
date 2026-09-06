@@ -27,9 +27,9 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json() as Record<string, unknown>;
     const userId = cleanText(body.userId, 180);
-    const role = cleanText(body.role, 24);
+    let role = cleanText(body.role, 24);
     const status = cleanText(body.status, 24);
-    const tier = cleanText(body.tier, 24);
+    let tier = cleanText(body.tier, 24);
     if (!userId || !roles.includes(role) || !statuses.includes(status) || !tiers.includes(tier)) {
       return Response.json({ error: "Choose a valid role, tier, and account status." }, { status: 400 });
     }
@@ -38,6 +38,19 @@ export async function PATCH(request: Request) {
     if (!target) return Response.json({ error: "Member account not found." }, { status: 404 });
     if (target.email === "deank@kirklanddigital.com" && (role !== "admin" || status !== "approved")) {
       return Response.json({ error: "The primary administrator cannot be removed." }, { status: 400 });
+    }
+    if (status !== "approved") {
+      role = "applicant";
+      tier = "none";
+    } else if (role === "applicant") {
+      role = "member";
+      tier = tier === "none" ? "standard" : tier;
+    } else if (role === "member" && tier === "none") {
+      tier = "standard";
+    } else if (role === "barnaby" && tier === "none") {
+      tier = "staff";
+    } else if (role === "admin" && tier === "none") {
+      tier = "leadership";
     }
     const now = Date.now();
     if (role === "barnaby") {
