@@ -50,6 +50,14 @@ type AdminSection = "dossier-requests" | "contacts" | "wanted-list" | "registry-
 
 const SHORT_DESCRIPTION_LIMIT = 449;
 const LONG_DESCRIPTION_GUIDE = 5500;
+const SOCIETY_HERO_IMAGES = [
+  { src: "/society-hero-european-gt.jpg", alt: "Burgundy European grand touring coupe in the Motorcar Society gallery" },
+  { src: "/society-hero-european-roadster.jpg", alt: "Silver European roadster in the Motorcar Society gallery" },
+  { src: "/society-hero-european-coupe.jpg", alt: "Green European sports coupe in the Motorcar Society gallery" },
+  { src: "/society-hero-american-fastback.jpg", alt: "Blue American fastback in the Motorcar Society gallery" },
+  { src: "/society-hero-american-convertible.jpg", alt: "Ivory American convertible in the Motorcar Society gallery" },
+  { src: "/society-hero-american-competition.jpg", alt: "Black American competition coupe in the Motorcar Society gallery" },
+];
 
 type MemberAccount = {
   userId: string;
@@ -200,6 +208,12 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [heroIndex, setHeroIndex] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setHeroIndex((current) => (current + 1) % SOCIETY_HERO_IMAGES.length), 6500);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     let active = true;
     const query = new URLSearchParams({ page: String(page) });
@@ -224,78 +238,54 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
   return (
     <main>
       <section className="relative min-h-[42rem] overflow-hidden border-b border-white/10 lg:min-h-[46rem]">
-        <img
-          src="/motorcar-hero.png"
-          alt="A late-1950s competition sports car in a private collection room"
-          className="absolute inset-0 h-full w-full object-cover object-[61%_center]"
-        />
+        {SOCIETY_HERO_IMAGES.map((image, index) => (
+          <img
+            key={image.src}
+            src={image.src}
+            alt={index === heroIndex ? image.alt : ""}
+            aria-hidden={index !== heroIndex}
+            className={`absolute inset-0 h-full w-full object-cover object-[63%_center] transition-[opacity,transform] duration-[1800ms] ease-out motion-reduce:transition-none ${index === heroIndex ? "scale-100 opacity-100" : "scale-[1.025] opacity-0"}`}
+          />
+        ))}
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,8,8,0.97)_0%,rgba(7,8,8,0.85)_31%,rgba(7,8,8,0.23)_64%,rgba(7,8,8,0.12)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(7,8,8,0.88)_0%,transparent_35%)]" />
 
         <div className="relative mx-auto flex min-h-[42rem] max-w-[90rem] items-end px-5 pb-10 pt-28 sm:px-8 lg:min-h-[46rem] lg:items-center lg:px-12 lg:pb-0 lg:pt-0">
           <div className="max-w-[38rem]">
             <div className="mb-6 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold-light)]">
-              <span className="h-px w-10 bg-[var(--gold)]" />Private Release 01
+              <span className="h-px w-10 bg-[var(--gold)]" />The Motorcar Society
             </div>
-            <h1 className="font-display text-[clamp(3.2rem,7vw,6.8rem)] leading-[0.88] tracking-[-0.025em] text-white">
-              1958
-              <span className="mt-2 block text-[0.54em] leading-[1.02] text-white/95">Competition Sports Car</span>
+            <h1 className="max-w-[42rem] font-display text-[clamp(3.1rem,6.2vw,6.2rem)] leading-[0.9] tracking-[-0.025em] text-white">
+              Remarkable cars.
+              <span className="mt-2 block text-[0.62em] leading-[1.02] text-white/95">Their stories, preserved.</span>
             </h1>
             <p className="mt-7 max-w-[34rem] text-lg leading-8 text-white/76 sm:text-xl">
-              European competition history. California collection since 1987. Full identity available to verified members.
+              A private community built around provenance, trusted relationships and the collector cars that deserve to be remembered properly.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">
-                    Request Private Dossier<ArrowRight className="ml-2 size-5" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-h-[88vh] overflow-y-auto border-white/12 bg-[#151716] p-0 text-white sm:max-w-2xl">
-                  <div className="relative h-56 overflow-hidden sm:h-72">
-                    <img src="/motorcar-hero.png" alt="Private-release competition sports car" className="h-full w-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#151716] to-transparent" />
-                  </div>
-                  <div className="px-6 pb-7 sm:px-8">
-                    <DialogHeader>
-                      <DialogTitle className="font-display text-4xl font-normal leading-tight">Private Dossier Request</DialogTitle>
-                      <DialogDescription className="mt-2 text-base leading-7 text-white/64">
-                        A Motorcar Society specialist will confirm access and contact you directly.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                      {["Ownership file", "Competition record", "Condition report", "High-resolution gallery"].map((item) => (
-                        <div key={item} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-4 text-[0.96rem] text-white/82">
-                          <FileCheck2 className="size-5 text-[var(--gold-light)]" />{item}
-                        </div>
-                      ))}
-                    </div>
-                    <DialogFooter className="mt-7 sm:justify-start">
-                      <Button className="h-12 bg-[var(--gold)] px-6 text-base text-[#111] hover:bg-[var(--gold-light)]">Continue as Member</Button>
-                      <Button variant="outline" className="h-12 border-white/18 bg-transparent px-6 text-base text-white hover:bg-white hover:text-black">Speak with Barnaby</Button>
-                    </DialogFooter>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button onClick={() => document.getElementById("registry-list")?.scrollIntoView({ behavior: "smooth" })} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">
+                Explore the Registry<ArrowRight className="ml-2 size-5" />
+              </Button>
               {showMemberActions && <Button
                 variant="outline"
                 onClick={() => setView("membership")}
                 className="h-14 border-white/24 bg-black/20 px-7 text-base text-white hover:bg-white hover:text-black"
               >
-                Apply for Membership
+                Membership
               </Button>}
             </div>
           </div>
         </div>
 
-        <div className="absolute bottom-8 right-8 hidden rounded-xl border border-white/12 bg-black/52 px-5 py-4 backdrop-blur-md xl:block">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/48">Release status</div>
-          <div className="mt-2 flex items-center gap-2 text-base text-white"><span className="size-2.5 rounded-full bg-[var(--gold-light)]" />Private Match · 36 hours remaining</div>
+        <div className="absolute bottom-8 right-8 hidden items-center gap-2 sm:flex" aria-label="Choose hero image">
+          {SOCIETY_HERO_IMAGES.map((image, index) => (
+            <button key={image.src} onClick={() => setHeroIndex(index)} aria-label={`Show image ${index + 1} of ${SOCIETY_HERO_IMAGES.length}`} aria-current={index === heroIndex} className={`h-1 rounded-full transition-all ${index === heroIndex ? "w-10 bg-[var(--gold-light)]" : "w-5 bg-white/35 hover:bg-white/65"}`} />
+          ))}
         </div>
       </section>
 
-      <section className="border-b border-white/10 bg-[#101211] px-5 py-16 sm:px-8 lg:px-12 lg:py-20">
+      <section id="registry-list" className="scroll-mt-24 border-b border-white/10 bg-[#101211] px-5 py-16 sm:px-8 lg:px-12 lg:py-20">
         <div className="mx-auto max-w-[90rem]">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div><p className="eyebrow">Recently entered</p><h2 className="mt-3 font-display text-4xl text-white sm:text-5xl">The Registry</h2></div>
