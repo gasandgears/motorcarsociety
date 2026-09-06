@@ -52,13 +52,13 @@ type AdminSection = "dossier-requests" | "contacts" | "wanted-list" | "registry-
 const SHORT_DESCRIPTION_LIMIT = 449;
 const LONG_DESCRIPTION_GUIDE = 5500;
 const SOCIETY_HERO_IMAGES = [
-  { src: "/society-hero-original.jpg", alt: "Black competition sports car in the Motorcar Society gallery" },
-  { src: "/society-hero-european-gt.jpg", alt: "Burgundy European grand touring coupe in the Motorcar Society gallery" },
-  { src: "/society-hero-european-roadster.jpg", alt: "Silver European roadster in the Motorcar Society gallery" },
-  { src: "/society-hero-european-coupe.jpg", alt: "Green European sports coupe in the Motorcar Society gallery" },
-  { src: "/society-hero-american-fastback.jpg", alt: "Blue American fastback in the Motorcar Society gallery" },
-  { src: "/society-hero-american-convertible.jpg", alt: "Ivory American convertible in the Motorcar Society gallery" },
-  { src: "/society-hero-american-competition.jpg", alt: "Black American competition coupe in the Motorcar Society gallery" },
+  { src: "/society-hero-original.jpg", alt: "Black competition sports car in the Motorcar Society gallery", eyebrow: "The Motorcar Society", title: "Remarkable cars.", secondLine: "Their stories, preserved.", body: "A private community built around provenance, trusted relationships and the collector cars that deserve to be remembered properly." },
+  { src: "/society-hero-european-gt.jpg", alt: "Burgundy European grand touring coupe in the Motorcar Society gallery", eyebrow: "Documented provenance", title: "History first.", secondLine: "Everything else follows.", body: "We preserve the ownership, restoration and identity records that give an important motorcar lasting meaning—and collectors lasting confidence." },
+  { src: "/society-hero-european-roadster.jpg", alt: "Silver European roadster in the Motorcar Society gallery", eyebrow: "Private by design", title: "Access built on trust.", secondLine: "Introductions made personally.", body: "Motorcar Society connects serious people discreetly, without turning exceptional cars or private collections into public inventory." },
+  { src: "/society-hero-european-coupe.jpg", alt: "Green European sports coupe in the Motorcar Society gallery", eyebrow: "A different kind of registry", title: "Not another marketplace.", secondLine: "A society of collectors.", body: "This is a considered home for significant cars, informed enthusiasts and relationships that extend well beyond a single transaction." },
+  { src: "/society-hero-american-fastback.jpg", alt: "Blue American fastback in the Motorcar Society gallery", eyebrow: "The private dossier", title: "Every important detail.", secondLine: "Preserved in one place.", body: "From identity and ownership to restoration and condition, each vehicle file is organized to tell the complete, credible story." },
+  { src: "/society-hero-american-convertible.jpg", alt: "Ivory American convertible in the Motorcar Society gallery", eyebrow: "Intelligent matching", title: "The right car.", secondLine: "For the right collector.", body: "Member Wanted Lists help us recognize meaningful opportunities and make thoughtful introductions before a car is widely offered." },
+  { src: "/society-hero-american-competition.jpg", alt: "Black American competition coupe in the Motorcar Society gallery", eyebrow: "Stewardship beyond ownership", title: "Significant cars outlive us.", secondLine: "Their histories should too.", body: "Motorcar Society was created to protect what matters, connect each car with its next steward and carry its story forward." },
 ];
 
 type MemberAccount = {
@@ -237,6 +237,7 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
     heroImageUrl: car.heroImageUrl,
     code: (car.make || car.model || "M").charAt(0).toUpperCase(),
   }));
+  const heroMessage = SOCIETY_HERO_IMAGES[heroIndex];
   return (
     <main>
       <section className="relative min-h-[42rem] overflow-hidden border-b border-white/10 lg:min-h-[46rem]">
@@ -258,14 +259,14 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
         <div className="relative mx-auto flex min-h-[42rem] max-w-[90rem] items-end px-5 pb-10 pt-28 sm:px-8 lg:min-h-[46rem] lg:items-center lg:px-12 lg:pb-0 lg:pt-0">
           <div className="max-w-[38rem]">
             <div className="mb-6 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold-light)]">
-              <span className="h-px w-10 bg-[var(--gold)]" />The Motorcar Society
+              <span className="h-px w-10 bg-[var(--gold)]" />{heroMessage.eyebrow}
             </div>
             <h1 className="max-w-[42rem] font-display text-[clamp(3.1rem,6.2vw,6.2rem)] leading-[0.9] tracking-[-0.025em] text-white">
-              Remarkable cars.
-              <span className="mt-2 block text-[0.62em] leading-[1.02] text-white/95">Their stories, preserved.</span>
+              {heroMessage.title}
+              <span className="mt-2 block text-[0.62em] leading-[1.02] text-white/95">{heroMessage.secondLine}</span>
             </h1>
             <p className="mt-7 max-w-[34rem] text-lg leading-8 text-white/76 sm:text-xl">
-              A private community built around provenance, trusted relationships and the collector cars that deserve to be remembered properly.
+              {heroMessage.body}
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
