@@ -75,7 +75,7 @@ type MemberAccount = {
   updatedAt: number;
 };
 
-type RegistryCar = { id: string; year: string; make: string; model: string; detail: string; expectedPrice: string; visibility: string; status: string; category: string; registryId: string; updatedAt: number };
+type RegistryCar = { id: string; year: string; make: string; model: string; detail: string; expectedPrice: string; visibility: string; status: string; category: string; registryId: string; updatedAt: number; heroImageUrl?: string };
 
 function Brand() {
   return (
@@ -234,6 +234,7 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
     status: car.status === "released" ? (car.visibility === "public" ? "Available" : "Member Preview") : "Internal Review",
     category: car.category,
     registryId: car.registryId,
+    heroImageUrl: car.heroImageUrl,
     code: (car.make || car.model || "M").charAt(0).toUpperCase(),
   }));
   return (
@@ -312,8 +313,8 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
                 onClick={(event) => { event.preventDefault(); onOpenCar(car.id); }}
                 className="group min-h-44 overflow-hidden rounded-lg border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
-                <div className="flex h-14 items-center justify-between border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-4">
-                  <span className="font-display text-4xl text-white/[0.08]">{car.code}</span>
+                <div className="relative flex h-20 items-center justify-between overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-4">
+                  {car.heroImageUrl ? <><img src={car.heroImageUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-[1.03] object-cover saturate-[.78] contrast-[1.08] brightness-[.72] transition duration-700 group-hover:scale-100 group-hover:brightness-[.82]" /><span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,8,8,.72),transparent_55%,rgba(7,8,8,.2))]" /></> : <span className="font-display text-4xl text-white/[0.08]">{car.code}</span>}
                   <span className="rounded-full border border-white/14 px-2 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.1em] text-white/60">{car.status}</span>
                 </div>
                 <div className="p-4">
@@ -886,6 +887,7 @@ const intakeSteps = [
 ];
 
 const fileChecklist = [
+  { id: "hero", label: "Listing hero image", help: "One strong exterior image; the Registry applies the cinematic card treatment automatically", accept: "image/*", icon: Camera },
   { id: "photos", label: "Vehicle photography", help: "Exterior, interior, engine bay and detail images", accept: "image/*", icon: Camera },
   { id: "title", label: "Ownership or title evidence", help: "Title evidence or equivalent ownership record", accept: "image/*,application/pdf", icon: FileText },
   { id: "registration", label: "Current registration evidence", help: "Current registration or applicable equivalent", accept: "image/*,application/pdf", icon: FileText },
@@ -905,6 +907,7 @@ const fileChecklist = [
 type FileCategory = (typeof fileChecklist)[number]["id"] | "records";
 
 const fileCategoryLabels: Record<FileCategory, string> = {
+  hero: "Listing hero image",
   photos: "Photos",
   title: "Ownership / title",
   registration: "Registration",
@@ -1121,6 +1124,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const completedCount = Math.min(3, Math.ceil(coreComplete / 2)) + received.length;
   const completion = Math.round((completedCount / (3 + fileChecklist.length)) * 100);
   const photoUploads = uploads.filter((file) => file.category === "photos");
+  const currentHeroId = [...uploads].reverse().find((file) => file.category === "hero" && file.status === "saved")?.id;
 
   const savePhotoOrder = async (orderedPhotos: IntakeUpload[]) => {
     if (!savedCarId || orderedPhotos.some((file) => !file.serverId)) return;
@@ -1460,7 +1464,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             <p className="mt-1 text-sm text-black/45">{savedCount ? `${savedCount} file${savedCount === 1 ? "" : "s"} saved` : item.help}</p>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {item.id !== "photos" && item.id !== "video" && (
+                            {item.id !== "hero" && item.id !== "photos" && item.id !== "video" && (
                               <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-black/14 bg-white px-4 text-sm font-semibold hover:border-[#806c49]">
                                 <Camera className="mr-2 size-4" />Scan / photograph
                                 <input
@@ -1476,10 +1480,10 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                               </label>
                             )}
                             <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg bg-[#1a1c1b] px-4 text-sm font-semibold text-white hover:bg-[#343735]">
-                              <Upload className="mr-2 size-4" />{item.id === "photos" ? "Add photos" : item.id === "video" ? "Add video" : "Choose file"}
+                              <Upload className="mr-2 size-4" />{item.id === "hero" ? "Choose hero image" : item.id === "photos" ? "Add photos" : item.id === "video" ? "Add video" : "Choose file"}
                               <input
                                 type="file"
-                                multiple
+                                multiple={item.id !== "hero"}
                                 accept={item.accept}
                                 className="sr-only"
                                 onChange={(event) => {
@@ -1493,7 +1497,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             </button>
                           </div>
                         </div>
-                        {item.id !== "photos" && item.id !== "video" && <div className="mt-4 border-t border-black/8 pt-4">
+                        {item.id !== "hero" && item.id !== "photos" && item.id !== "video" && <div className="mt-4 border-t border-black/8 pt-4">
                           <div className="flex items-center justify-between gap-3"><label className="admin-label" htmlFor={`requirement-${item.id}`}>Manual entry or document details</label>{requirementNotes[item.id] && <span className="text-xs font-semibold text-[#60765c]">Editable document text</span>}</div>
                           <textarea id={`requirement-${item.id}`} value={requirementNotes[item.id] || ""} onChange={(event) => setRequirementNotes((current) => ({ ...current, [item.id]: event.target.value }))} onBlur={() => void saveRequirementEntry(item.id)} className="admin-field mt-2 min-h-28 resize-y" placeholder={`Enter ${item.label.toLowerCase()} manually, or upload a text-based PDF to prefill this field.`} />
                           <p className="mt-2 text-xs leading-5 text-black/42">{savingRequirement === item.id ? "Saving…" : "Changes save when you leave this field. Uploaded PDFs are read automatically; review extracted details before release."}</p>
@@ -1530,6 +1534,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             <div className="grid h-32 place-items-center bg-black/[0.035]"><FileText className="size-9 text-[#806c49]" /></div>
                           )}
                           <button disabled={file.status === "uploading"} onClick={() => removeUpload(file.id)} aria-label={`Remove ${file.name}`} className="absolute right-2 top-2 grid size-10 place-items-center rounded-full bg-black/72 text-white shadow-lg hover:bg-black disabled:cursor-wait disabled:opacity-40"><X className="size-5" /></button>
+                          {file.id === currentHeroId && <span className="absolute bottom-[5.55rem] left-2 rounded-full bg-[var(--gold)] px-3 py-2 text-xs font-bold text-[#111] shadow-lg">Current Registry hero</span>}
                           {file.category === "photos" && (() => {
                             const photoIndex = photoUploads.findIndex((photo) => photo.id === file.id);
                             return <div className="absolute bottom-[5.55rem] left-2 right-2 flex items-center justify-between gap-2">

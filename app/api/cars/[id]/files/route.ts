@@ -57,7 +57,9 @@ export async function POST(request: Request, context: RouteContext) {
     const contentType = (request.headers.get("content-type") || "application/octet-stream").split(";", 1)[0].trim().toLowerCase().slice(0, 160);
     if (!allowedUploadTypes.has(contentType)) return Response.json({ error: "Choose a PDF, Word document, text file, photo, or supported video." }, { status: 415 });
     const suppliedCategory = request.headers.get("x-file-category") || "records";
-    const category = ["photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video", "records"].includes(suppliedCategory) ? suppliedCategory : "records";
+    const category = ["hero", "photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video", "records"].includes(suppliedCategory) ? suppliedCategory : "records";
+    if ((category === "hero" || category === "photos") && !contentType.startsWith("image/")) return Response.json({ error: "Choose an image for vehicle photography." }, { status: 415 });
+    if (category === "video" && !contentType.startsWith("video/")) return Response.json({ error: "Choose a supported video file." }, { status: 415 });
     const fileId = crypto.randomUUID();
     const storageKey = `cars/${carId}/${fileId}`;
     const bytes = new Uint8Array(await request.arrayBuffer());

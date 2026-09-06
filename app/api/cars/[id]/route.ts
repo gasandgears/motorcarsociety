@@ -6,7 +6,7 @@ import { canManageCars, cleanText, forbidden, getAuthenticatedUser, getOrCreateA
 
 export const dynamic = "force-dynamic";
 
-const fileCategories = ["photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video"];
+const fileCategories = ["hero", "photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video"];
 
 type RouteContext = { params: Promise<{ id: string }> };
 

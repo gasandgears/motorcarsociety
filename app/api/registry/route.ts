@@ -1,7 +1,7 @@
-import { and, count, desc, eq, like, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { cars } from "@/db/schema";
+import { carFiles, cars } from "@/db/schema";
 import { getAuthenticatedUser, getOrCreateAccount, serverError } from "../_lib";
 
 export const dynamic = "force-dynamic";
@@ -38,10 +38,14 @@ export async function GET(request: Request) {
       registryId: cars.registryId,
       updatedAt: cars.updatedAt,
     }).from(cars).where(where).orderBy(desc(cars.updatedAt)).limit(pageSize).offset((page - 1) * pageSize);
+    const recordIds = records.map((record) => record.id);
+    const imageFiles = recordIds.length ? await db.select({ id: carFiles.id, carId: carFiles.carId, category: carFiles.category, sortOrder: carFiles.sortOrder, createdAt: carFiles.createdAt }).from(carFiles).where(and(inArray(carFiles.carId, recordIds), inArray(carFiles.category, ["hero", "photos"]))).orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt)) : [];
+    const heroByCar = new Map<string, { id: string; category: string }>();
+    imageFiles.forEach((file) => { const current = heroByCar.get(file.carId); if (!current || file.category === "hero") heroByCar.set(file.carId, file); });
     const [totalRow] = await db.select({ value: count() }).from(cars).where(where);
     const categoryRows = await db.selectDistinct({ category: cars.category }).from(cars).orderBy(cars.category);
     const total = totalRow?.value || 0;
-    return Response.json({ cars: records, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : approvedMember ? account?.tier || "standard" : "public" });
+    return Response.json({ cars: records.map((record) => ({ ...record, heroImageUrl: heroByCar.has(record.id) ? `/api/registry/${record.id}/photos/${heroByCar.get(record.id)!.id}` : undefined })), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : approvedMember ? account?.tier || "standard" : "public" });
   } catch (error) {
     return serverError(error, "The Registry is temporarily unavailable.");
   }

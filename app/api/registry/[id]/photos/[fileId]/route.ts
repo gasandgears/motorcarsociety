@@ -17,7 +17,7 @@ export async function GET(request: Request, context: RouteContext) {
     const [car] = await getDb().select({ visibility: cars.visibility, status: cars.status }).from(cars).where(eq(cars.id, id)).limit(1);
     if (!car) return new Response("Not found", { status: 404 });
     if (!(staff || (car.status === "released" && (car.visibility === "public" || (member && car.visibility === "members"))))) return new Response("Forbidden", { status: 403 });
-    const [file] = await getDb().select().from(carFiles).where(and(eq(carFiles.id, fileId), eq(carFiles.carId, id), inArray(carFiles.category, ["photos", "video"]))).limit(1);
+    const [file] = await getDb().select().from(carFiles).where(and(eq(carFiles.id, fileId), eq(carFiles.carId, id), inArray(carFiles.category, ["hero", "photos", "video"]))).limit(1);
     if (!file || (!file.contentType.startsWith("image/") && !file.contentType.startsWith("video/"))) return new Response("Not found", { status: 404 });
     const object = await getBucket().get(file.storageKey);
     if (!object) return new Response("Not found", { status: 404 });
