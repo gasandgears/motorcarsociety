@@ -51,6 +51,7 @@ type AdminSection = "dossier-requests" | "contacts" | "wanted-list" | "registry-
 const SHORT_DESCRIPTION_LIMIT = 449;
 const LONG_DESCRIPTION_GUIDE = 5500;
 const SOCIETY_HERO_IMAGES = [
+  { src: "/motorcar-hero.png", alt: "Black competition sports car in the Motorcar Society gallery" },
   { src: "/society-hero-european-gt.jpg", alt: "Burgundy European grand touring coupe in the Motorcar Society gallery" },
   { src: "/society-hero-european-roadster.jpg", alt: "Silver European roadster in the Motorcar Society gallery" },
   { src: "/society-hero-european-coupe.jpg", alt: "Green European sports coupe in the Motorcar Society gallery" },
