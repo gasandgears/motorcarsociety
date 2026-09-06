@@ -79,6 +79,28 @@ export const mailingContacts = pgTable(
   ],
 );
 
+export const vehicleSubmissions = pgTable(
+  "vehicle_submissions",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone").notNull(),
+    year: text("year").notNull(),
+    make: text("make").notNull(),
+    model: text("model").notNull(),
+    location: text("location").notNull(),
+    ownership: text("ownership").notNull(),
+    story: text("story").notNull(),
+    documentation: text("documentation").notNull().default(""),
+    status: text("status").notNull().default("new"),
+    consentedAt: bigint("consented_at", { mode: "number" }).notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+  },
+  (table) => [index("idx_vehicle_submissions_status_created").on(table.status, table.createdAt)],
+);
+
 export const cars = pgTable(
   "cars",
   {

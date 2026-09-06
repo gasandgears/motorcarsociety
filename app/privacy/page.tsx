@@ -1,0 +1,14 @@
+import { ProseSection, PublicHero, PublicPageShell } from "@/components/public-page-shell";
+
+export default function PrivacyPage() {
+  return <PublicPageShell><main><PublicHero eyebrow="Privacy" title="Privacy is part of the service—not an afterthought." intro="This notice explains how Motorcar Society handles member, vehicle and inquiry information." /><ProseSection>
+    <p><strong className="text-white">Effective September 6, 2026.</strong> Motorcar Society collects only the information reasonably needed to operate the Private Registry, review membership applications, respond to inquiries and maintain vehicle records.</p>
+    <h2>Information we collect</h2><p>We may collect your name, email address, telephone number, location, account details, membership application, private Wanted List, dossier requests and communications with our team. When a vehicle is submitted, we may also collect ownership information, vehicle identity details, photographs, videos, service records, restoration records and other provenance material.</p>
+    <h2>How we use information</h2><ul><li>Review and administer membership applications and account access.</li><li>Operate the Registry and preserve vehicle history.</li><li>Match member interests with relevant motorcars.</li><li>Respond to vehicle submissions and dossier requests.</li><li>Protect the security, integrity and appropriate use of the service.</li></ul>
+    <h2>Private vehicle records</h2><p>Source documents are not automatically public. Listing information may be made visible to visitors or approved members only when authorized by Motorcar Society. More sensitive documentation remains restricted to staff and is shared only through an approved process.</p>
+    <h2>Service providers and disclosure</h2><p>We use service providers for website hosting, authentication, data storage and related operations. They may process information only as necessary to provide those services. We do not sell personal information. We may disclose information when required by law, to protect the service or with your direction.</p>
+    <h2>Retention and security</h2><p>Information is retained while needed for the Registry, our relationship with you, legitimate recordkeeping or legal obligations. We use reasonable administrative and technical safeguards, but no online system can guarantee absolute security.</p>
+    <h2>Your choices</h2><p>You may ask to review, correct or delete personal information, subject to legal and legitimate recordkeeping needs. You may also ask us to stop nonessential communications.</p>
+    <h2>Contact</h2><p>Privacy questions may be sent to <a href="mailto:bbforcars@gmail.com">bbforcars@gmail.com</a> or discussed by calling <a href="tel:+16195182469">619-518-2469</a>.</p>
+  </ProseSection></main></PublicPageShell>;
+}

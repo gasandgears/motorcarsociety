@@ -4,7 +4,7 @@ import MotorcarApp from "../../motorcar-app";
 
 export const dynamic = "force-dynamic";
 
-const sections = ["dossier-requests", "contacts", "wanted-list", "registry-releases", "accounts"] as const;
+const sections = ["dossier-requests", "vehicle-submissions", "contacts", "wanted-list", "registry-releases", "accounts"] as const;
 type AdminSection = typeof sections[number];
 
 export default async function AdminPage({ params }: { params: Promise<{ section: string }> }) {

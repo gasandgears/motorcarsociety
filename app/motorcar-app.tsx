@@ -47,7 +47,7 @@ import { Progress } from "@/components/ui/progress";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 type View = "registry" | "vehicle" | "wanted" | "desk" | "intake" | "membership" | "admin";
-type AdminSection = "dossier-requests" | "contacts" | "wanted-list" | "registry-releases" | "accounts";
+type AdminSection = "dossier-requests" | "vehicle-submissions" | "contacts" | "wanted-list" | "registry-releases" | "accounts";
 
 const SHORT_DESCRIPTION_LIMIT = 449;
 const LONG_DESCRIPTION_GUIDE = 5500;
@@ -112,6 +112,7 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
         <button onClick={() => selectView("registry")} aria-label="Open the Registry"><Brand /></button>
 
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
+          <a href="/about" className="inline-flex h-11 items-center px-5 text-[0.95rem] text-white/68 transition hover:text-white">About</a>
           {links.map((link) => (
             <Button
               key={link.id}
@@ -144,6 +145,7 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
       {mobileOpen && (
         <div className="border-t border-white/10 px-5 py-4 lg:hidden">
           <nav className="grid gap-2" aria-label="Mobile navigation">
+            <a href="/about" className="flex min-h-13 items-center justify-between px-3 text-base text-white">About<ChevronRight className="size-5" /></a>
             {links.map((link) => (
               <Button key={link.id} variant="ghost" onClick={() => selectView(link.id)} className="h-13 justify-between px-3 text-base text-white">
                 {link.label}<ChevronRight className="size-5" />
@@ -158,6 +160,7 @@ function Header({ view, setView, canAccessDesk, canAccessAdmin, userEmail, signI
                 Member Sign In<ArrowRight className="size-5" />
               </a>
             )}
+            <a href="/submit-a-car" className="flex min-h-13 items-center justify-between px-3 text-base text-white">Submit a Car<ChevronRight className="size-5" /></a>
           </nav>
         </div>
       )}
@@ -180,6 +183,7 @@ function Landing({ signInPath }: { signInPath: string }) {
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <a href={`${signInPath}${signInPath.includes("?") ? "&" : "?"}mode=register`} className="inline-flex min-h-14 items-center justify-center rounded-lg bg-[var(--gold)] px-7 font-semibold text-[#111] transition hover:bg-[var(--gold-light)]">Request membership<ArrowRight className="ml-2 size-5" /></a>
               <a href={signInPath} className="inline-flex min-h-14 items-center justify-center rounded-lg border border-white/22 px-7 font-semibold transition hover:bg-white hover:text-black">Member sign in</a>
+              <a href="/about" className="inline-flex min-h-14 items-center justify-center px-4 font-semibold text-white/72 transition hover:text-white">Explore membership</a>
             </div>
             <div className="mt-12 grid max-w-[42rem] gap-5 border-t border-white/15 pt-7 sm:grid-cols-3">
               <div><p className="font-display text-2xl">Curated</p><p className="mt-1 text-sm leading-6 text-white/48">Cars selected for significance, quality and story.</p></div>
@@ -1818,6 +1822,7 @@ function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void;
   const [accountStatus, setAccountStatus] = useState("all");
   const [accountPage, setAccountPage] = useState(1);
   const [matchCar, setMatchCar] = useState<RegistryCar | null>(null);
+  const [vehicleSubmissions, setVehicleSubmissions] = useState<{ id: string; name: string; email: string; phone: string; year: string; make: string; model: string; location: string; ownership: string; story: string; documentation: string; status: string; createdAt: number }[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -1850,6 +1855,7 @@ function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void;
   }, []);
 
   useEffect(() => { let active = true; fetch("/api/admin/wanted", { cache: "no-store" }).then(async (response) => { const payload = await response.json() as { requests?: typeof wantedRequests }; if (active && response.ok) setWantedRequests(payload.requests || []); }).catch(() => undefined); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; fetch("/api/admin/vehicle-submissions", { cache: "no-store" }).then(async (response) => { const payload = await response.json() as { submissions?: typeof vehicleSubmissions }; if (active && response.ok) setVehicleSubmissions(payload.submissions || []); }).catch(() => undefined); return () => { active = false; }; }, []);
   useEffect(() => { const matchId = new URLSearchParams(window.location.search).get("match"); if (matchId && cars.length) setMatchCar(cars.find((car) => car.id === matchId) || null); }, [cars]);
 
   const updateLocal = (userId: string, field: "role" | "tier" | "status", value: string) => setMembers((current) => current.map((member) => member.userId === userId ? { ...member, [field]: value } as MemberAccount : member));
@@ -1868,6 +1874,12 @@ function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void;
   };
 
   const updateCarLocal = (id: string, field: "status" | "visibility", value: string) => setCars((current) => current.map((car) => car.id === id ? { ...car, [field]: value } : car));
+  const updateSubmission = async (id: string, status: string) => {
+    setSavingId(id); setError("");
+    try { const response = await fetch("/api/admin/vehicle-submissions", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status }) }); const payload = await response.json() as { submission?: (typeof vehicleSubmissions)[number]; error?: string }; if (!response.ok || !payload.submission) throw new Error(payload.error || "The submission could not be updated."); setVehicleSubmissions((current) => current.map((item) => item.id === id ? payload.submission! : item)); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "The submission could not be updated."); }
+    finally { setSavingId(null); }
+  };
   const releaseCar = async (car: RegistryCar) => {
     setSavingId(car.id);
     setError("");
@@ -1930,6 +1942,7 @@ function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void;
   useEffect(() => { if (dossierPage > dossierPageCount) setDossierPage(dossierPageCount); }, [dossierPage, dossierPageCount]);
   const adminLinks: { id: AdminSection; label: string }[] = [
     { id: "dossier-requests", label: "Dossier requests" },
+    { id: "vehicle-submissions", label: "Vehicle submissions" },
     { id: "contacts", label: "Import client contacts" },
     { id: "wanted-list", label: "Member Wanted List" },
     { id: "registry-releases", label: "Registry releases" },
@@ -1950,6 +1963,10 @@ function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void;
           <div className="mt-6 grid gap-3 sm:grid-cols-[minmax(0,1fr)_13rem]"><label className="relative"><span className="sr-only">Search dossier requests</span><Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-black/35" /><input value={dossierSearch} onChange={(event) => { setDossierSearch(event.target.value); setDossierPage(1); }} className="admin-field pl-12" placeholder="Search member or vehicle" /></label><label><span className="sr-only">Filter dossier requests by status</span><NativeSelect value={dossierStatus} onChange={(event) => { setDossierStatus(event.target.value); setDossierPage(1); }} className="h-12 w-full border-black/15"><NativeSelectOption value="all">All statuses</NativeSelectOption><NativeSelectOption value="new">New</NativeSelectOption><NativeSelectOption value="contacted">Contacted</NativeSelectOption><NativeSelectOption value="closed">Closed</NativeSelectOption></NativeSelect></label></div>
           {dossierRequests.length === 0 ? <p className="mt-6 text-black/50">New member requests will appear here.</p> : visibleDossierRequests.length === 0 ? <p className="mt-6 rounded-xl border border-black/8 bg-white p-8 text-center text-black/48">No dossier requests match these filters.</p> : <div className="mt-6 space-y-3">{visibleDossierRequests.map((request) => <article key={request.id} className="grid gap-4 rounded-xl border border-black/10 bg-white p-4 lg:grid-cols-[minmax(15rem,1fr)_minmax(14rem,1fr)_11rem_auto] lg:items-end"><div><p className="font-display text-2xl">{request.year} {request.make} {request.model}</p><p className="mt-1 text-sm text-black/48">Requested {new Date(request.createdAt).toLocaleDateString()}</p></div><div><label className="admin-label">Member</label><p className="mt-2 min-h-11 truncate rounded-lg bg-black/[0.035] px-3 py-3 text-sm">{request.requesterEmail}</p></div><div><label className="admin-label">Status</label><NativeSelect value={request.status} onChange={(event) => setDossierRequests((current) => current.map((item) => item.id === request.id ? { ...item, status: event.target.value } : item))} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="new">New</NativeSelectOption><NativeSelectOption value="contacted">Contacted</NativeSelectOption><NativeSelectOption value="closed">Closed</NativeSelectOption></NativeSelect></div><Button disabled={savingId === request.id} onClick={() => void updateDossierRequest(request.id, request.status)} className="h-11 bg-[#806c49] text-white hover:bg-[#695737]">{savingId === request.id ? "Saving…" : "Save"}</Button></article>)}</div>}
           {dossierPageCount > 1 && <nav className="mt-6 flex items-center justify-center gap-4" aria-label="Dossier request pages"><Button variant="outline" disabled={dossierPage <= 1} onClick={() => setDossierPage((page) => Math.max(1, page - 1))} className="h-11 border-black/15"><ChevronLeft className="mr-2 size-4" />Previous</Button><span className="text-sm text-black/50">Page {dossierPage} of {dossierPageCount}</span><Button variant="outline" disabled={dossierPage >= dossierPageCount} onClick={() => setDossierPage((page) => Math.min(dossierPageCount, page + 1))} className="h-11 border-black/15">Next<ChevronRight className="ml-2 size-4" /></Button></nav>}
+        </section>}
+        {section === "vehicle-submissions" && <section className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
+          <div className="flex items-center justify-between gap-4"><div><h2 className="font-display text-3xl">Vehicle submissions</h2><p className="mt-2 text-black/52">Private inquiries received from the Submit a Car page.</p></div><span className="rounded-full bg-[#806c49]/10 px-3 py-1.5 text-sm font-semibold">{vehicleSubmissions.filter((item) => item.status === "new").length} new</span></div>
+          {vehicleSubmissions.length ? <div className="mt-6 space-y-4">{vehicleSubmissions.map((item) => <article key={item.id} className="rounded-xl border border-black/10 bg-white p-5"><div className="grid gap-5 lg:grid-cols-[1fr_1fr_12rem] lg:items-start"><div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#806c49]">{item.year} {item.make}</p><h3 className="mt-2 font-display text-3xl">{item.model}</h3><p className="mt-2 text-sm text-black/48">{item.location} · {item.ownership}</p></div><div><p className="font-semibold">{item.name}</p><a href={`mailto:${item.email}`} className="mt-1 block text-sm text-[#806c49]">{item.email}</a><a href={`tel:${item.phone}`} className="mt-1 block text-sm text-[#806c49]">{item.phone}</a></div><div><label className="admin-label">Review status</label><NativeSelect value={item.status} onChange={(event) => setVehicleSubmissions((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, status: event.target.value } : currentItem))} className="mt-2 h-11 w-full border-black/15"><NativeSelectOption value="new">New</NativeSelectOption><NativeSelectOption value="contacted">Contacted</NativeSelectOption><NativeSelectOption value="accepted">Accepted</NativeSelectOption><NativeSelectOption value="declined">Declined</NativeSelectOption></NativeSelect><Button disabled={savingId === item.id} onClick={() => void updateSubmission(item.id, item.status)} className="mt-3 h-11 w-full bg-[#806c49] text-white hover:bg-[#695737]">{savingId === item.id ? "Saving…" : "Save"}</Button></div></div><div className="mt-5 grid gap-4 border-t border-black/8 pt-5 md:grid-cols-2"><div><p className="admin-label">Vehicle story</p><p className="mt-2 whitespace-pre-line text-sm leading-6 text-black/62">{item.story}</p></div><div><p className="admin-label">Documentation available</p><p className="mt-2 whitespace-pre-line text-sm leading-6 text-black/62">{item.documentation || "Not specified"}</p></div></div><p className="mt-4 text-xs text-black/38">Received {new Date(item.createdAt).toLocaleString()}</p></article>)}</div> : <p className="mt-6 rounded-xl border border-black/8 bg-white p-8 text-center text-black/48">No vehicle submissions yet.</p>}
         </section>}
         {section === "contacts" && <ContactImport onImported={() => undefined} />}
         {section === "wanted-list" && <section id="wanted-demand" className="mt-9 rounded-2xl border border-black/10 bg-white/65 p-5 sm:p-7">
@@ -1997,7 +2014,7 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
       const match = window.location.pathname.match(/^\/registry\/([^/]+)$/);
       if (match) { setRegistryCarId(decodeURIComponent(match[1])); setView("vehicle"); }
       else {
-        const adminMatch = window.location.pathname.match(/^\/admin\/(dossier-requests|contacts|wanted-list|registry-releases|accounts)$/);
+        const adminMatch = window.location.pathname.match(/^\/admin\/(dossier-requests|vehicle-submissions|contacts|wanted-list|registry-releases|accounts)$/);
         setRegistryCarId(null);
         if (adminMatch) { setAdminSection(adminMatch[1] as AdminSection); setView("admin"); }
         else setView("registry");
@@ -2025,7 +2042,7 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
       <footer className="border-t border-white/10 bg-[#0d0e0e] px-5 py-8 text-white/46 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-[90rem] flex-col gap-5 text-sm sm:flex-row sm:items-center sm:justify-between">
           <Brand />
-          <div className="flex flex-wrap gap-x-7 gap-y-2"><button className="hover:text-white">Privacy</button><button className="hover:text-white">Terms</button><button className="hover:text-white">Contact</button></div>
+          <div className="flex flex-wrap gap-x-7 gap-y-2"><a href="/about" className="hover:text-white">About</a><a href="/privacy" className="hover:text-white">Privacy</a><a href="/terms" className="hover:text-white">Terms</a><a href="/contact" className="hover:text-white">Contact</a><a href="/submit-a-car" className="hover:text-white">Submit a Car</a></div>
         </div>
       </footer>
     </div>
