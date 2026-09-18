@@ -11,13 +11,15 @@ export async function GET(request: Request) {
     const account = getAuthenticatedUser(request) ? await getOrCreateAccount(request) : null;
     const staff = account?.status === "approved" && (account.role === "admin" || account.role === "barnaby");
     const approvedMember = account?.status === "approved" && account.role === "member";
+    const paidMember = approvedMember && ["standard", "priority", "private"].includes(account?.tier || "");
+    const canSeeSensitive = staff || paidMember;
     const url = new URL(request.url);
     const search = (url.searchParams.get("search") || "").trim().slice(0, 100);
     const category = (url.searchParams.get("category") || "").trim().slice(0, 80);
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
     const pageSize = 12;
     const conditions: SQL[] = [];
-    if (!staff) conditions.push(approvedMember ? and(eq(cars.status, "released"), or(eq(cars.visibility, "public"), eq(cars.visibility, "members")))! : and(eq(cars.status, "released"), eq(cars.visibility, "public"))!);
+    if (!staff) conditions.push(eq(cars.status, "released"));
     if (category && category !== "All") conditions.push(eq(cars.category, category));
     if (search) {
       const term = `%${search.replace(/[%_]/g, "")}%`;
@@ -41,11 +43,11 @@ export async function GET(request: Request) {
     const recordIds = records.map((record) => record.id);
     const imageFiles = recordIds.length ? await db.select({ id: carFiles.id, carId: carFiles.carId, category: carFiles.category, sortOrder: carFiles.sortOrder, createdAt: carFiles.createdAt }).from(carFiles).where(and(inArray(carFiles.carId, recordIds), inArray(carFiles.category, ["hero", "photos"]))).orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt)) : [];
     const heroByCar = new Map<string, { id: string; category: string }>();
-    imageFiles.forEach((file) => { const current = heroByCar.get(file.carId); if (!current || file.category === "hero") heroByCar.set(file.carId, file); });
+    imageFiles.forEach((file) => { if (file.category === "hero" && !heroByCar.has(file.carId)) heroByCar.set(file.carId, file); });
     const [totalRow] = await db.select({ value: count() }).from(cars).where(where);
-    const categoryRows = await db.selectDistinct({ category: cars.category }).from(cars).orderBy(cars.category);
+    const categoryRows = await db.selectDistinct({ category: cars.category }).from(cars).where(staff ? undefined : eq(cars.status, "released")).orderBy(cars.category);
     const total = totalRow?.value || 0;
-    return Response.json({ cars: records.map((record) => ({ ...record, heroImageUrl: heroByCar.has(record.id) ? `/api/registry/${record.id}/photos/${heroByCar.get(record.id)!.id}` : undefined })), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : approvedMember ? account?.tier || "standard" : "public" });
+    return Response.json({ cars: records.map((record) => ({ ...record, detail: canSeeSensitive ? record.detail : "", expectedPrice: canSeeSensitive ? record.expectedPrice : "", heroImageUrl: heroByCar.has(record.id) ? `/api/registry/${record.id}/photos/${heroByCar.get(record.id)!.id}` : undefined })), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : paidMember ? "paid" : approvedMember ? "free" : "public" });
   } catch (error) {
     return serverError(error, "The Registry is temporarily unavailable.");
   }

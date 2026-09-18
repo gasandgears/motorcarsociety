@@ -1,4 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import sharp from "sharp";
 
 import { getDb } from "@/db";
@@ -10,7 +12,21 @@ export const maxDuration = 300;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const HERO_PROMPT = `Create a premium Motorcar Society registry hero photograph from the supplied vehicle photograph. Preserve the exact vehicle—body, paint, trim, wheels, badges, proportions and identifying details. Replace only the surroundings with the same visual language as the Motorcar Society homepage: an elegant contemporary private collector gallery at blue hour, dark charcoal stone, floor-to-ceiling glass, distant hills and warm sunset sky, polished dark floor, realistic architectural lighting and contact shadows. Use a wide horizontal composition with the complete car visible and darker negative space on the left. Deep blacks, warm highlights, restrained saturation and cinematic editorial automotive color grading. No people, text, added logos, extra vehicles or changes to the car.`;
+const HERO_REFERENCES = [
+  "society-hero-original.jpg",
+  "society-hero-european-gt.jpg",
+  "society-hero-american-convertible.jpg",
+];
+
+const HERO_PROMPT = `Image 1 is the authoritative subject photograph. Images 2–4 are Motorcar Society homepage style references only.
+
+Create a new 3:2 landscape Registry hero that belongs to the exact same photographic series as images 2–4. Preserve the vehicle from image 1 exactly: model and body shape, paint color, trim, badges, glass, lights, grille, wheels, tires, stance, proportions, and visible condition. Do not borrow, blend, or copy any vehicle from the style references.
+
+Match the established scene precisely: a dark, minimal private collector gallery; monolithic matte charcoal stone wall across the left; polished dark concrete floor; slim black floor-to-ceiling glazing on the right; distant mountain or lakeside silhouettes; restrained blue-hour sky. Place the complete vehicle in the lower-right 55–65% of the frame, leaving broad, uncluttered, near-black negative space on the left for editorial copy. Use an eye-level or subtly low three-quarter automotive camera angle.
+
+Match the homepage color and light: dense neutral near-black shadows that retain surface detail; cool steel-blue ambient window light; subtle warm bronze practical highlights; restrained saturation; faithful vehicle paint; controlled chrome without clipped whites; soft directional key light; realistic contact shadow and understated floor reflection. The result must read as a refined real photograph, not CGI and not a generic dealership or white-box studio.
+
+No people, text, signs, added logos, other cars, props, neon, fog, motion effects, excessive spotlights, or invented license-plate content.`;
 
 export async function POST(request: Request, context: RouteContext) {
   const user = getAuthenticatedUser(request);
@@ -29,12 +45,13 @@ export async function POST(request: Request, context: RouteContext) {
     if (!stored) return Response.json({ error: "The cover photo could not be loaded." }, { status: 404 });
     const sourceBytes = await new Response(stored.body).arrayBuffer();
     const normalizedSource = await sharp(Buffer.from(sourceBytes)).rotate().png().toBuffer();
+    const referenceImages = await Promise.all(HERO_REFERENCES.map((filename) => readFile(join(process.cwd(), "public", filename))));
     const form = new FormData();
-    form.append("model", "gpt-image-1.5");
+    form.append("model", "gpt-image-2.5-sunburst");
     form.append("prompt", HERO_PROMPT);
-    form.append("image", new File([Uint8Array.from(normalizedSource)], "registry-cover.png", { type: "image/png" }));
-    form.append("input_fidelity", "high");
-    form.append("quality", "medium");
+    form.append("image[]", new File([Uint8Array.from(normalizedSource)], "subject-vehicle.png", { type: "image/png" }));
+    HERO_REFERENCES.forEach((filename, index) => form.append("image[]", new File([Uint8Array.from(referenceImages[index])], filename, { type: "image/jpeg" })));
+    form.append("quality", "high");
     form.append("size", "1536x1024");
     form.append("output_format", "webp");
     const editResponse = await fetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { Authorization: `Bearer ${apiKey.trim()}` }, body: form });

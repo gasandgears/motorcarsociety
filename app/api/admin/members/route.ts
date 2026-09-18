@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const roles = ["applicant", "member", "barnaby", "admin"];
 const statuses = ["pending", "approved", "denied"];
-const tiers = ["none", "standard", "priority", "private", "staff", "leadership"];
+const tiers = ["none", "free", "standard", "priority", "private", "staff", "leadership"];
 
 export async function GET(request: Request) {
   if (!getAuthenticatedUser(request)) return unauthorized();

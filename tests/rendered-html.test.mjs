@@ -23,6 +23,12 @@ test("keeps public footer destinations available", async () => {
   for (const path of ["/about", "/privacy", "/terms", "/contact", "/submit-a-car"]) assert.match(shell, new RegExp(path.replaceAll("/", "\\/")));
 });
 
+test("uploads every file in a selected photo batch", async () => {
+  const source = await readFile(new URL("../app/motorcar-app.tsx", import.meta.url), "utf8");
+  assert.match(source, /for \(const item of selected\) \{\s*const savedId = await uploadFile\(item, savedCarId\);/);
+  assert.doesNotMatch(source, /firstSavedId \|\|= await uploadFile/);
+});
+
 test("uses compact linked admin records with dedicated detail pages", async () => {
   const consoleSource = await readFile(new URL("../app/motorcar-app.tsx", import.meta.url), "utf8");
   const detailSource = await readFile(new URL("../components/admin-record-detail.tsx", import.meta.url), "utf8");

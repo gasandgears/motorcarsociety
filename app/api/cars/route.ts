@@ -34,7 +34,8 @@ export async function POST(request: Request) {
     const model = cleanText(body.model, 120);
     const sellerName = cleanText(body.owner, 120);
     const sellerPhone = cleanText(body.phone, 50);
-    if (![year, make, model, sellerName, sellerPhone].some(Boolean)) {
+    const documentDraft = body.documentDraft === true;
+    if (!documentDraft && ![year, make, model, sellerName, sellerPhone].some(Boolean)) {
       return Response.json({ error: "Add a vehicle or seller detail before creating the file." }, { status: 400 });
     }
 

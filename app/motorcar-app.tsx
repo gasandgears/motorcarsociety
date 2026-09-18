@@ -68,7 +68,7 @@ type MemberAccount = {
   location: string;
   collectionNotes: string;
   role: "applicant" | "member" | "barnaby" | "admin";
-  tier: "none" | "standard" | "priority" | "private" | "staff" | "leadership";
+  tier: "none" | "free" | "standard" | "priority" | "private" | "staff" | "leadership";
   status: "pending" | "approved" | "denied";
   createdAt: number;
   updatedAt: number;
@@ -202,7 +202,7 @@ function Landing({ signInPath }: { signInPath: string }) {
   );
 }
 
-function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (view: View) => void; onOpenCar: (id: string) => void; showMemberActions?: boolean }) {
+function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: { setView: (view: View) => void; onOpenCar: (id: string) => void; userEmail: string | null; showMemberActions?: boolean }) {
   const [registryCars, setRegistryCars] = useState<RegistryCar[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -211,6 +211,7 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [access, setAccess] = useState<"public" | "free" | "paid" | "staff">("public");
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
   const [heroTextPhase, setHeroTextPhase] = useState<"visible" | "exiting" | "entering">("visible");
@@ -239,8 +240,8 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
     if (search.trim()) query.set("search", search.trim());
     if (category !== "All") query.set("category", category);
     fetch(`/api/registry?${query}`, { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { cars?: RegistryCar[]; categories?: string[]; pageCount?: number; total?: number };
-      if (active && response.ok) { setRegistryCars(payload.cars || []); setCategories(payload.categories || []); setPageCount(payload.pageCount || 1); setTotal(payload.total || 0); }
+      const payload = await response.json() as { cars?: RegistryCar[]; categories?: string[]; pageCount?: number; total?: number; access?: "public" | "free" | "paid" | "staff" };
+      if (active && response.ok) { setRegistryCars(payload.cars || []); setCategories(payload.categories || []); setPageCount(payload.pageCount || 1); setTotal(payload.total || 0); setAccess(payload.access || "public"); }
     }).catch(() => undefined).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [search, category, page]);
@@ -248,8 +249,8 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
     id: car.id,
     year: car.year,
     name: `${car.make} ${car.model}`.trim() || "Confidential motorcar",
-    detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : "Private details available"),
-    status: car.status === "released" ? (car.visibility === "public" ? "Available" : "Member Preview") : "Internal Review",
+    detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : access === "public" ? "Register to view this car" : access === "free" ? "Paid member details protected" : "Private details available"),
+    status: car.status === "released" ? "Registry Preview" : "Internal Review",
     category: car.category,
     registryId: car.registryId,
     heroImageUrl: car.heroImageUrl,
@@ -320,8 +321,8 @@ function Registry({ setView, onOpenCar, showMemberActions = true }: { setView: (
             {cards.map((car) => (
               <a
                 key={car.id}
-                href={`/registry/${car.id}`}
-                onClick={(event) => { event.preventDefault(); onOpenCar(car.id); }}
+                href={userEmail ? `/registry/${car.id}` : `/signin?return_to=${encodeURIComponent(`/registry/${car.id}`)}&mode=register`}
+                onClick={userEmail ? (event) => { event.preventDefault(); onOpenCar(car.id); } : undefined}
                 className="group min-h-44 overflow-hidden rounded-lg border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
                 <div className="relative flex h-20 items-center justify-between overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-4">
@@ -405,6 +406,9 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   const [car, setCar] = useState<RegistryVehicleData | null>(null);
   const [photos, setPhotos] = useState<{ id: string; filename: string; url: string }[]>([]);
   const [videos, setVideos] = useState<{ id: string; filename: string; url: string }[]>([]);
+  const [access, setAccess] = useState<"free" | "paid" | "staff">("free");
+  const [totalPhotoCount, setTotalPhotoCount] = useState(0);
+  const [lockedPhotoCount, setLockedPhotoCount] = useState(0);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -428,9 +432,9 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   useEffect(() => {
     let active = true;
     fetch(`/api/registry/${carId}`, { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; videos?: { id: string; filename: string; url: string }[]; error?: string };
+      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; videos?: { id: string; filename: string; url: string }[]; access?: "free" | "paid" | "staff"; totalPhotoCount?: number; lockedPhotoCount?: number; error?: string };
       if (!response.ok || !payload.car) throw new Error(payload.error || "This vehicle could not be opened.");
-      if (active) { setCar(payload.car); setPhotos(payload.photos || []); setVideos(payload.videos || []); }
+      if (active) { setCar(payload.car); setPhotos(payload.photos || []); setVideos(payload.videos || []); setAccess(payload.access || "free"); setTotalPhotoCount(payload.totalPhotoCount || payload.photos?.length || 0); setLockedPhotoCount(payload.lockedPhotoCount || 0); }
     }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "This vehicle could not be opened."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -473,6 +477,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
               <div className="absolute bottom-4 right-4 rounded-full bg-black/70 px-4 py-2 text-sm backdrop-blur">{photos.length ? `${activePhoto + 1} / ${photos.length}` : "Private imagery pending"}</div>
             </div>
             {photos.length > 1 && <div className="mt-3 flex w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-2 sm:mt-4 sm:gap-3 scrollbar-thin">{photos.slice(0, 18).map((photo, index) => <button key={photo.id} onClick={() => setActivePhoto(index)} aria-label={`View photo ${index + 1}`} className={`h-16 w-[5.5rem] shrink-0 overflow-hidden rounded-lg border sm:h-20 sm:w-28 ${index === activePhoto ? "border-[var(--gold-light)]" : "border-white/10"}`}><img src={photo.url} alt="" className="block h-full w-full object-cover" /></button>)}</div>}
+            {access === "free" && lockedPhotoCount > 0 && <div className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--gold)]/25 bg-[var(--gold)]/[.07] p-4 text-sm leading-6 text-white/70"><LockKeyhole className="size-5 shrink-0 text-[var(--gold-light)]" /><span>You can view the first five photos. {lockedPhotoCount} more {lockedPhotoCount === 1 ? "photo is" : "photos are"} available with paid membership.</span></div>}
             {videos.length > 0 && <div className="mt-5 border-t border-white/10 pt-5">
               <p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--gold-light)]">Vehicle video</p>
               <div className="mt-3 flex flex-wrap gap-3">{videos.map((video, index) => <button key={video.id} type="button" onClick={() => setActiveVideo(activeVideo === video.id ? null : video.id)} className={`group flex min-h-16 items-center gap-3 rounded-xl border px-4 text-left transition ${activeVideo === video.id ? "border-[var(--gold)] bg-[var(--gold)]/10" : "border-white/12 bg-white/[.035] hover:border-white/28"}`}><span className="grid size-10 place-items-center rounded-full bg-[var(--gold)] text-[#111]"><Play className="ml-0.5 size-5 fill-current" /></span><span><span className="block text-sm font-semibold">{videos.length === 1 ? "Play vehicle video" : `Play video ${index + 1}`}</span><span className="mt-1 block max-w-56 truncate text-xs text-white/45">{video.filename}</span></span></button>)}</div>
@@ -484,7 +489,8 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
             <h1 className="mt-4 font-display text-4xl leading-[0.95] sm:text-6xl">{car.year}<span className="mt-3 block text-[0.58em] leading-tight sm:text-[0.55em]">{car.make} {car.model}</span></h1>
             <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.category && car.category !== "Uncategorized" && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.category}</span>}{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
             <div className="mt-6 whitespace-pre-line text-base leading-7 text-white/67 sm:mt-7 sm:text-lg sm:leading-8">{car.shortDescription || car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</div>
-            <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{photos.length} photos</dd></div></dl>
+            <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{access === "free" ? "Paid members" : priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{access === "free" && lockedPhotoCount ? `${photos.length} of ${totalPhotoCount}` : `${photos.length} photos`}</dd></div></dl>
+            {access === "free" && <div className="mt-4 rounded-xl border border-white/10 bg-white/[.035] p-4 text-sm leading-6 text-white/62"><LockKeyhole className="mb-2 size-5 text-[var(--gold-light)]" />Owner identity, price, location, full gallery and video are reserved for approved paid members.</div>}
             {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
             {userEmail ? <Button disabled={requesting || requested} onClick={() => void requestDossier()} className="mt-7 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{requesting ? "Sending request…" : requested ? "Dossier requested" : "Request Private Dossier"}{requested ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />}</Button> : <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111]">Sign in to request dossier<ArrowRight className="ml-2 size-5" /></a>}
             {userEmail && <Dialog>
@@ -497,7 +503,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
                 <div className="mt-6 space-y-5">
                   <div><label className="field-label" htmlFor="share-email">Their email address</label><input id="share-email" type="email" value={shareEmail} onChange={(event) => setShareEmail(event.target.value)} className="field mt-2" placeholder="friend@example.com" /></div>
                   <div><label className="field-label" htmlFor="share-note">Your note</label><textarea id="share-note" value={shareNote} onChange={(event) => setShareNote(event.target.value)} className="field mt-2 min-h-28 resize-y" /></div>
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-white/40">Important</p><p className="mt-2 text-sm leading-6 text-white/65">They must sign in or create an account before they can see the car. New accounts wait for approval.</p></div>
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-white/40">Important</p><p className="mt-2 text-sm leading-6 text-white/65">They must sign in or create a free account before they can see the car. Paid membership is required for private owner, price, location and full-gallery details.</p></div>
                 </div>
                 <DialogFooter className="mt-6 grid gap-3 sm:grid-cols-2">
                   <Button type="button" variant="outline" onClick={() => void copyShareLink()} className="h-13 border-white/18 bg-transparent text-white hover:bg-white hover:text-black">{linkCopied ? <Check className="mr-2 size-5" /> : <Copy className="mr-2 size-5" />}{linkCopied ? "Link copied" : "Copy link"}</Button>
@@ -1030,6 +1036,9 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const [saveNotice, setSaveNotice] = useState("");
   const [photoOrdering, setPhotoOrdering] = useState(false);
   const [heroProcessing, setHeroProcessing] = useState(false);
+  const [documentPrefilling, setDocumentPrefilling] = useState(false);
+  const [prefilledFields, setPrefilledFields] = useState<string[]>([]);
+  const [documentSourceSummary, setDocumentSourceSummary] = useState("");
   const heroAutoStarted = useRef(false);
   const [car, setCar] = useState({
     year: "",
@@ -1324,8 +1333,85 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
     }));
     setUploads((current) => [...current, ...selected]);
     let firstSavedId: string | null = null;
-    for (const item of selected) firstSavedId ||= await uploadFile(item, savedCarId);
+    for (const item of selected) {
+      const savedId = await uploadFile(item, savedCarId);
+      if (!firstSavedId && savedId) firstSavedId = savedId;
+    }
     if (category === "photos" && !currentHeroId && firstSavedId) void styleListingHero(firstSavedId, savedCarId);
+  };
+
+  const handleDocumentPrefill = async (files: FileList | null) => {
+    if (!files?.length || documentPrefilling) return;
+    setDocumentPrefilling(true);
+    setSaveError("");
+    setSaveNotice("");
+    setPrefilledFields([]);
+    setDocumentSourceSummary("");
+    try {
+      const chosen = Array.from(files).slice(0, 20);
+      const totalBytes = chosen.reduce((sum, file) => sum + file.size, 0);
+      if (files.length > 20) throw new Error("Choose no more than 20 documents at a time.");
+      if (totalBytes > 50 * 1024 * 1024) throw new Error("Choose a document batch totaling 50 MB or less for autofill.");
+
+      let carId = savedCarId;
+      if (!carId) {
+        const draftResponse = await fetch("/api/cars", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...car, documentDraft: true }) });
+        const draft = await draftResponse.json() as { car?: { id: string; registryId: string; category: string }; error?: string };
+        if (!draftResponse.ok || !draft.car) throw new Error(draft.error || "The private draft could not be created.");
+        carId = draft.car.id;
+        setSavedCarId(carId);
+        onCarCreated(carId);
+        setRecordCreated(true);
+        setCar((current) => ({ ...current, registryId: draft.car!.registryId, category: draft.car!.category }));
+      }
+
+      const selected: IntakeUpload[] = chosen.map((file, index) => ({
+        id: `prefill-${file.name}-${file.lastModified}-${crypto.randomUUID()}-${index}`,
+        serverId: null,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+        category: "records",
+        status: "uploading",
+        sourceFile: file,
+      }));
+      setUploads((current) => [...current, ...selected]);
+      const fileIds: string[] = [];
+      for (const item of selected) {
+        const fileId = await uploadFile(item, carId);
+        if (fileId) fileIds.push(fileId);
+      }
+      if (!fileIds.length) throw new Error("None of the selected documents finished uploading.");
+
+      setSaveNotice(`Reading ${fileIds.length} saved document${fileIds.length === 1 ? "" : "s"}…`);
+      const extractResponse = await fetch(`/api/cars/${carId}/extract-documents`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fileIds }) });
+      const extracted = await extractResponse.json() as { fields?: Record<string, string | null>; error?: string };
+      if (!extractResponse.ok || !extracted.fields) throw new Error(extracted.error || "The saved documents could not be analyzed.");
+
+      const next = { ...car };
+      const applied: string[] = [];
+      for (const [key, value] of Object.entries(extracted.fields)) {
+        if (!(key in next) || key === "sourceSummary" || typeof value !== "string" || !value.trim()) continue;
+        const field = key as keyof typeof next;
+        const empty = !next[field].trim() || (field === "category" && next[field] === "Uncategorized");
+        if (!empty) continue;
+        next[field] = value.trim();
+        applied.push(field);
+      }
+      setCar(next);
+      setPrefilledFields(applied);
+      setDocumentSourceSummary(typeof extracted.fields.sourceSummary === "string" ? extracted.fields.sourceSummary : "");
+      const saveResponse = await fetch(`/api/cars/${carId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...next, received, visibility, status: "intake" }) });
+      const saved = await saveResponse.json() as { error?: string };
+      if (!saveResponse.ok) throw new Error(saved.error || "The extracted fields could not be saved.");
+      setSaveNotice(applied.length ? `${applied.length} blank field${applied.length === 1 ? "" : "s"} filled from the documents. Review before continuing.` : "Documents saved. No new supported values were found; blank fields were left untouched.");
+    } catch (error) {
+      setSaveNotice("");
+      setSaveError(error instanceof Error ? error.message : "The documents could not be used for autofill.");
+    } finally {
+      setDocumentPrefilling(false);
+    }
   };
 
   const removeUpload = async (id: string) => {
@@ -1417,6 +1503,21 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                 <div className="flex size-12 items-center justify-center rounded-xl bg-[#806c49]/12 text-[#806c49]"><CarFront className="size-6" /></div>
                 <h2 className="mt-5 font-display text-3xl sm:text-4xl">Start with what you know.</h2>
                 <p className="mt-3 text-lg leading-8 text-black/54">Six quick details create the car file. Nothing gets lost while the rest arrives.</p>
+                <section className="mt-7 rounded-2xl border border-[#806c49]/24 bg-[#f4efe4] p-5 sm:p-6" aria-labelledby="document-prefill-title">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="max-w-2xl">
+                      <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-[#806c49]"><FileText className="size-4" />Document-assisted intake</div>
+                      <h3 id="document-prefill-title" className="mt-2 font-display text-2xl sm:text-3xl">Prefill the entire car listing.</h3>
+                      <p className="mt-2 text-sm leading-6 text-black/55">Upload documents, text files, spreadsheets, presentations, scans, or photos. Readable facts fill blank fields across every step; anything missing or uncertain stays blank.</p>
+                    </div>
+                    <label className={`inline-flex min-h-13 shrink-0 items-center justify-center rounded-lg bg-[#1a1c1b] px-5 font-semibold text-white ${documentPrefilling ? "cursor-wait opacity-60" : "cursor-pointer hover:bg-[#343735]"}`}>
+                      <Upload className="mr-2 size-5" />{documentPrefilling ? "Reading documents…" : "Upload documents"}
+                      <input type="file" multiple disabled={documentPrefilling} accept="image/*,text/*,.pdf,.doc,.docx,.rtf,.odt,.ods,.odp,.xls,.xlsx,.ppt,.pptx,.epub,.json,.xml" className="sr-only" onChange={(event) => { void handleDocumentPrefill(event.target.files); event.currentTarget.value = ""; }} />
+                    </label>
+                  </div>
+                  {documentPrefilling && <div className="mt-5"><div className="h-1.5 overflow-hidden rounded-full bg-black/10"><div className="h-full w-2/3 animate-pulse rounded-full bg-[#806c49]" /></div><p className="mt-2 text-sm font-semibold text-[#6f5b39]">Saving privately, reading the evidence, and filling supported fields…</p></div>}
+                  {prefilledFields.length > 0 && <div className="mt-5 rounded-xl border border-[#60765c]/25 bg-white/70 p-4"><p className="font-semibold text-[#52654e]">Filled {prefilledFields.length} previously blank field{prefilledFields.length === 1 ? "" : "s"}.</p><p className="mt-1 text-sm leading-6 text-black/52">Existing entries were preserved. Review the highlighted information throughout the listing before release.</p>{documentSourceSummary && <p className="mt-3 border-t border-black/8 pt-3 text-xs leading-5 text-black/45">{documentSourceSummary}</p>}</div>}
+                </section>
                 <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   <div><label className="admin-label" htmlFor="car-year">Year</label><input id="car-year" value={car.year} onChange={(event) => setField("year", event.target.value)} className="admin-field mt-2" inputMode="numeric" placeholder="1967" /></div>
                   <div><label className="admin-label" htmlFor="car-make">Make</label><input id="car-make" value={car.make} onChange={(event) => setField("make", event.target.value)} className="admin-field mt-2" placeholder="Ferrari" /></div>
@@ -1712,7 +1813,7 @@ function Membership({ account, setAccount, signInPath, signOutPath, setView }: {
           <p className="eyebrow">{staffAccount ? "Administration" : "Membership"}</p>
           <h1 className="mt-4 font-display text-5xl leading-[0.98] text-white sm:text-6xl">{staffAccount ? "Your staff account." : "Direct access. Quietly handled."}</h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-white/63">{staffAccount ? "Manage your contact details and secure access to Motorcar Society administration." : "Every account is reviewed individually. Your approved level controls what appears in the Registry and which private services are available."}</p>
-          <div className="mt-7 inline-flex rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">{approved ? `${account.tier === "leadership" ? "Leadership" : account.tier === "staff" ? "Staff" : account.tier === "private" ? "Private Client" : account.tier === "priority" ? "Priority Member" : "Verified Member"} · Approved` : account.status === "denied" ? "Application not approved" : "Application pending review"}</div>
+          <div className="mt-7 inline-flex rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">{approved ? `${account.tier === "leadership" ? "Leadership" : account.tier === "staff" ? "Staff" : account.tier === "private" ? "Private Client" : account.tier === "priority" ? "Priority Member" : account.tier === "free" ? "Free Member" : "Verified Member"} · Approved` : account.status === "denied" ? "Application not approved" : "Application pending review"}</div>
           <div className="mt-9 space-y-4">
             {(staffAccount ? [
               [ShieldCheck, "Registry administration"],
@@ -1999,8 +2100,8 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
   const [activeCarId, setActiveCarId] = useState<string | null>(initialEditCarId);
   const [registryCarId, setRegistryCarId] = useState<string | null>(initialCarId);
   const normalizedEmail = userEmail?.trim().toLowerCase() ?? null;
-  const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deank@kirklanddigital.com" || normalizedEmail === "bbforcars@gmail.com" ? "admin" : normalizedEmail === "deankirkland@me.com" ? "member" : "applicant";
-  const [account, setAccount] = useState<MemberAccount | null>(initialRole ? { userId: "", email: userEmail!, displayName: userEmail!.split("@")[0], phone: "", location: "", collectionNotes: "", role: initialRole, tier: initialRole === "admin" ? "leadership" : initialRole === "member" ? "standard" : "none", status: initialRole === "applicant" ? "pending" : "approved", createdAt: 0, updatedAt: 0 } : null);
+  const initialRole: MemberAccount["role"] | null = !normalizedEmail ? null : normalizedEmail === "deank@kirklanddigital.com" || normalizedEmail === "bbforcars@gmail.com" ? "admin" : "member";
+  const [account, setAccount] = useState<MemberAccount | null>(initialRole ? { userId: "", email: userEmail!, displayName: userEmail!.split("@")[0], phone: "", location: "", collectionNotes: "", role: initialRole, tier: initialRole === "admin" ? "leadership" : normalizedEmail === "deankirkland@me.com" ? "standard" : "free", status: "approved", createdAt: 0, updatedAt: 0 } : null);
   useEffect(() => {
     if (!userEmail) return;
     let active = true;
@@ -2033,7 +2134,7 @@ export default function MotorcarApp({ signInPath, signOutPath, userEmail, initia
   return (
     <div className="min-h-screen bg-[#101211]">
       <Header view={view} setView={(next) => { if (view === "vehicle") window.history.pushState({}, "", "/"); setView(next); }} canAccessDesk={canAccessDesk} canAccessAdmin={canAccessAdmin} userEmail={userEmail} signInPath={signInPath} />
-      {view === "registry" && (userEmail ? <Registry setView={setView} onOpenCar={openVehiclePage} showMemberActions={!canAccessDesk && !canAccessAdmin} /> : <Landing signInPath={signInPath} />)}
+      {view === "registry" && <Registry setView={setView} onOpenCar={openVehiclePage} userEmail={userEmail} showMemberActions={!canAccessDesk && !canAccessAdmin} />}
       {view === "vehicle" && registryCarId && <RegistryVehicle carId={registryCarId} userEmail={userEmail} signInPath={signInPath} onBack={returnToRegistry} />}
       {view === "wanted" && <WantedVehicleList userEmail={userEmail} signInPath={signInPath} />}
       {view === "desk" && canAccessDesk && <BarnabyDesk signInPath={signInPath} onAddCar={() => { setActiveCarId(null); setView("intake"); }} onOpenCar={(id) => { setActiveCarId(id); setView("intake"); }} />}

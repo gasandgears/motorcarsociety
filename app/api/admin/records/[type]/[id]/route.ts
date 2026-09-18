@@ -45,7 +45,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (type === "contacts" && "permission" in updates && !["needs_review", "existing_client", "confirmed_opt_in", "unsubscribed"].includes(String(updates.permission))) return Response.json({ error: "Choose a valid contact permission." }, { status: 400 });
     if (type === "accounts") {
       if ("role" in updates && !["applicant", "member", "barnaby", "admin"].includes(String(updates.role))) return Response.json({ error: "Choose a valid role." }, { status: 400 });
-      if ("tier" in updates && !["none", "standard", "priority", "private", "staff", "leadership"].includes(String(updates.tier))) return Response.json({ error: "Choose a valid membership level." }, { status: 400 });
+      if ("tier" in updates && !["none", "free", "standard", "priority", "private", "staff", "leadership"].includes(String(updates.tier))) return Response.json({ error: "Choose a valid membership level." }, { status: 400 });
       const client = db(); const { data: existing, error: existingError } = await client.from("accounts").select("email").eq("user_id", id).maybeSingle(); if (existingError) throw existingError;
       if (!existing) return Response.json({ error: "Account not found." }, { status: 404 });
       if (["deank@kirklanddigital.com", "bbforcars@gmail.com"].includes(String(existing.email).toLowerCase()) && (updates.role !== "admin" || updates.status !== "approved")) return Response.json({ error: "This administrator account must remain approved with the Admin role." }, { status: 400 });

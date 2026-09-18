@@ -17,6 +17,7 @@ export default function SignInForm({ returnTo, initialMode = "signin" }: { retur
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [newsletterOptIn, setNewsletterOptIn] = useState(true);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -57,6 +58,7 @@ export default function SignInForm({ returnTo, initialMode = "signin" }: { retur
       return;
     }
     await fetch("/api/me", { cache: "no-store" });
+    if (mode === "register" && newsletterOptIn) await fetch("/api/me", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ newsletterOptIn: true }) });
     window.location.assign(returnTo);
   };
 
@@ -70,7 +72,7 @@ export default function SignInForm({ returnTo, initialMode = "signin" }: { retur
           {mode === "signin"
             ? "Enter your email and password. You’ll remain signed in on this device until you choose Sign out."
             : mode === "register"
-              ? "Create a basic account. Dean or Barnaby will review it and assign your membership access."
+              ? "Create a free account to browse Registry cars and view their first five photos. Paid membership unlocks owner, price, location and the complete gallery."
               : "Enter your account email. We’ll send you a secure link to choose a new password."}
         </p>
         {mode !== "forgot" && <div className="mt-7 grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1" aria-label="Account access">
@@ -90,7 +92,8 @@ export default function SignInForm({ returnTo, initialMode = "signin" }: { retur
             <label className="field-label" htmlFor="confirm-password">Confirm password</label>
             <input id="confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="field mt-2" placeholder="Enter your password again" />
           </div>}
-          <button disabled={sending} className="min-h-14 w-full rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111] disabled:opacity-50">{sending ? "Please wait…" : mode === "signin" ? "Sign in" : mode === "register" ? "Create basic account" : "Send reset link"}</button>
+          {mode === "register" && <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-white/[.035] p-4 text-sm leading-6 text-white/65"><input type="checkbox" checked={newsletterOptIn} onChange={(event) => setNewsletterOptIn(event.target.checked)} className="mt-1 size-4 accent-[var(--gold)]" /><span>Send me Registry updates and the Motorcar Society newsletter. I can unsubscribe at any time.</span></label>}
+          <button disabled={sending} className="min-h-14 w-full rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111] disabled:opacity-50">{sending ? "Please wait…" : mode === "signin" ? "Sign in" : mode === "register" ? "Create free account" : "Send reset link"}</button>
         </form>
         {mode === "signin" && <button type="button" onClick={() => changeMode("forgot")} className="mt-5 min-h-11 w-full text-sm font-semibold text-white/55 transition hover:text-white">Forgot your password?</button>}
         {mode === "forgot" && <button type="button" onClick={() => changeMode("signin")} className="mt-5 min-h-11 w-full text-sm font-semibold text-white/55 transition hover:text-white">Return to sign in</button>}

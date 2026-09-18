@@ -13,6 +13,21 @@ const allowedUploadTypes = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
   "text/csv",
+  "text/markdown",
+  "text/html",
+  "text/rtf",
+  "text/xml",
+  "application/json",
+  "application/xml",
+  "application/rtf",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/epub+zip",
   "image/jpeg",
   "image/png",
   "image/webp",
@@ -55,7 +70,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const filename = safeFilename(request.headers.get("x-file-name") || "upload");
     const contentType = (request.headers.get("content-type") || "application/octet-stream").split(";", 1)[0].trim().toLowerCase().slice(0, 160);
-    if (!allowedUploadTypes.has(contentType)) return Response.json({ error: "Choose a PDF, Word document, text file, photo, or supported video." }, { status: 415 });
+    if (!allowedUploadTypes.has(contentType) && !contentType.startsWith("image/") && !contentType.startsWith("text/")) return Response.json({ error: "Choose a document, text file, photo, or supported video." }, { status: 415 });
     const suppliedCategory = request.headers.get("x-file-category") || "records";
     const category = ["hero", "photos", "title", "registration", "bill_of_sale", "ownership_history", "identity", "drivetrain", "restoration_history", "restoration_invoice", "condition", "photo_manifest", "provenance", "application", "video", "records"].includes(suppliedCategory) ? suppliedCategory : "records";
     if ((category === "hero" || category === "photos") && !contentType.startsWith("image/")) return Response.json({ error: "Choose an image for vehicle photography." }, { status: 415 });
