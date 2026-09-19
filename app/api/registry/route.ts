@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { carFiles, cars } from "@/db/schema";
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       updatedAt: cars.updatedAt,
     }).from(cars).where(where).orderBy(desc(cars.updatedAt)).limit(pageSize).offset((page - 1) * pageSize);
     const recordIds = records.map((record) => record.id);
-    const imageFiles = recordIds.length ? await db.select({ id: carFiles.id, carId: carFiles.carId, category: carFiles.category, sortOrder: carFiles.sortOrder, createdAt: carFiles.createdAt }).from(carFiles).where(and(inArray(carFiles.carId, recordIds), inArray(carFiles.category, ["hero", "photos"]))).orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt)) : [];
+    const imageFiles = recordIds.length ? await db.select({ id: carFiles.id, carId: carFiles.carId, category: carFiles.category, sortOrder: carFiles.sortOrder, createdAt: carFiles.createdAt }).from(carFiles).where(and(inArray(carFiles.carId, recordIds), eq(carFiles.category, "hero"))).orderBy(desc(carFiles.createdAt), desc(carFiles.sortOrder)) : [];
     const heroByCar = new Map<string, { id: string; category: string }>();
     imageFiles.forEach((file) => { if (file.category === "hero" && !heroByCar.has(file.carId)) heroByCar.set(file.carId, file); });
     const [totalRow] = await db.select({ value: count() }).from(cars).where(where);
