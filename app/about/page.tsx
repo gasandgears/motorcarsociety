@@ -1,5 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { PublicHero, PublicPageShell } from "@/components/public-page-shell";
+
+export const metadata: Metadata = {
+  title: "Private Collector Car Registry & Membership",
+  description:
+    "Join Motorcar Society, a private collector-car registry for discreet buying, selling, provenance, vehicle dossiers, and trusted introductions.",
+  alternates: { canonical: "/about" },
+};
 
 const tiers = [
   { name: "Verified Member", price: "Complimentary at launch", description: "For collectors who want trusted access to the Registry and a private place to record the cars they are actively seeking.", benefits: ["Approved access to member Registry releases", "A private, editable Wanted List", "Private dossier requests", "Thoughtful introductions when a relevant car appears"] },
