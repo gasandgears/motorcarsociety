@@ -954,6 +954,30 @@ type IntakeUpload = {
   sourceFile: File | null;
 };
 
+const listingPrefillDocumentTypes = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/rtf",
+  "text/rtf",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/epub+zip",
+  "application/json",
+  "application/xml",
+]);
+
+const listingPrefillAccept = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/rtf,text/*,.pdf,.doc,.docx,.rtf,.odt,.ods,.odp,.xls,.xlsx,.ppt,.pptx,.epub,.json,.xml";
+
+function canPrefillListingFromUpload(file: Pick<IntakeUpload, "type" | "name">) {
+  return file.type.startsWith("text/") || listingPrefillDocumentTypes.has(file.type) || /\.(pdf|docx?|rtf|od[ts]|ods|odp|xlsx?|pptx?|epub|json|xml)$/i.test(file.name);
+}
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -1147,6 +1171,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const completion = Math.round((completedCount / (3 + fileChecklist.length)) * 100);
   const photoUploads = uploads.filter((file) => file.category === "photos");
   const currentHeroId = [...uploads].reverse().find((file) => file.category === "hero" && file.status === "saved")?.id;
+  const savedDocumentsForPrefill = uploads.filter((file) => file.status === "saved" && file.serverId && canPrefillListingFromUpload(file));
 
   const styleListingHero = async (sourceFileId: string, carId = savedCarId) => {
     if (!carId || heroProcessing) return;
@@ -1333,11 +1358,64 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
     }));
     setUploads((current) => [...current, ...selected]);
     let firstSavedId: string | null = null;
+    const savedDocumentIds: string[] = [];
     for (const item of selected) {
       const savedId = await uploadFile(item, savedCarId);
       if (!firstSavedId && savedId) firstSavedId = savedId;
+      if (savedId && canPrefillListingFromUpload(item)) savedDocumentIds.push(savedId);
     }
     if (category === "photos" && !currentHeroId && firstSavedId) void styleListingHero(firstSavedId, savedCarId);
+    if (savedDocumentIds.length) {
+      setSaveNotice(`Reading ${savedDocumentIds.length} saved document${savedDocumentIds.length === 1 ? "" : "s"} for listing details…`);
+      try {
+        const applied = await prefillListingFromSavedDocuments(savedCarId, savedDocumentIds);
+        setSaveNotice(applied.length ? `${applied.length} blank listing field${applied.length === 1 ? "" : "s"} filled from the uploaded document${savedDocumentIds.length === 1 ? "" : "s"}. Review before release.` : "Document saved. No new supported listing details were found; existing entries were left untouched.");
+      } catch (error) {
+        setSaveNotice("");
+        setSaveError(error instanceof Error ? error.message : "The uploaded documents could not be used to fill the listing.");
+      }
+    }
+  };
+
+  const prefillListingFromSavedDocuments = async (carId: string, fileIds: string[]) => {
+    const extractResponse = await fetch(`/api/cars/${carId}/extract-documents`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fileIds }) });
+    const extracted = await extractResponse.json() as { fields?: Record<string, string | null>; error?: string };
+    if (!extractResponse.ok || !extracted.fields) throw new Error(extracted.error || "The saved documents could not be analyzed.");
+
+    const next = { ...car };
+    const applied: string[] = [];
+    for (const [key, value] of Object.entries(extracted.fields)) {
+      if (!(key in next) || key === "sourceSummary" || typeof value !== "string" || !value.trim()) continue;
+      const field = key as keyof typeof next;
+      const empty = !next[field].trim() || (field === "category" && next[field] === "Uncategorized");
+      if (!empty) continue;
+      next[field] = value.trim();
+      applied.push(field);
+    }
+    setCar(next);
+    setPrefilledFields(applied);
+    setDocumentSourceSummary(typeof extracted.fields.sourceSummary === "string" ? extracted.fields.sourceSummary : "");
+
+    const saveResponse = await fetch(`/api/cars/${carId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...next, received, visibility, status: "intake" }) });
+    const saved = await saveResponse.json() as { error?: string };
+    if (!saveResponse.ok) throw new Error(saved.error || "The extracted fields could not be saved.");
+    return applied;
+  };
+
+  const rescanSavedDocuments = async () => {
+    if (!savedCarId || documentPrefilling || !savedDocumentsForPrefill.length) return;
+    setDocumentPrefilling(true);
+    setSaveError("");
+    setSaveNotice(`Reading ${savedDocumentsForPrefill.length} saved document${savedDocumentsForPrefill.length === 1 ? "" : "s"}…`);
+    try {
+      const applied = await prefillListingFromSavedDocuments(savedCarId, savedDocumentsForPrefill.flatMap((file) => file.serverId ? [file.serverId] : []));
+      setSaveNotice(applied.length ? `${applied.length} blank listing field${applied.length === 1 ? "" : "s"} filled from the saved documents. Review before release.` : "Documents read. No new supported listing details were found; existing entries were left untouched.");
+    } catch (error) {
+      setSaveNotice("");
+      setSaveError(error instanceof Error ? error.message : "The saved documents could not be used to fill the listing.");
+    } finally {
+      setDocumentPrefilling(false);
+    }
   };
 
   const handleDocumentPrefill = async (files: FileList | null) => {
@@ -1385,26 +1463,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
       if (!fileIds.length) throw new Error("None of the selected documents finished uploading.");
 
       setSaveNotice(`Reading ${fileIds.length} saved document${fileIds.length === 1 ? "" : "s"}…`);
-      const extractResponse = await fetch(`/api/cars/${carId}/extract-documents`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fileIds }) });
-      const extracted = await extractResponse.json() as { fields?: Record<string, string | null>; error?: string };
-      if (!extractResponse.ok || !extracted.fields) throw new Error(extracted.error || "The saved documents could not be analyzed.");
-
-      const next = { ...car };
-      const applied: string[] = [];
-      for (const [key, value] of Object.entries(extracted.fields)) {
-        if (!(key in next) || key === "sourceSummary" || typeof value !== "string" || !value.trim()) continue;
-        const field = key as keyof typeof next;
-        const empty = !next[field].trim() || (field === "category" && next[field] === "Uncategorized");
-        if (!empty) continue;
-        next[field] = value.trim();
-        applied.push(field);
-      }
-      setCar(next);
-      setPrefilledFields(applied);
-      setDocumentSourceSummary(typeof extracted.fields.sourceSummary === "string" ? extracted.fields.sourceSummary : "");
-      const saveResponse = await fetch(`/api/cars/${carId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...next, received, visibility, status: "intake" }) });
-      const saved = await saveResponse.json() as { error?: string };
-      if (!saveResponse.ok) throw new Error(saved.error || "The extracted fields could not be saved.");
+      const applied = await prefillListingFromSavedDocuments(carId, fileIds);
       setSaveNotice(applied.length ? `${applied.length} blank field${applied.length === 1 ? "" : "s"} filled from the documents. Review before continuing.` : "Documents saved. No new supported values were found; blank fields were left untouched.");
     } catch (error) {
       setSaveNotice("");
@@ -1512,7 +1571,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                     </div>
                     <label className={`inline-flex min-h-13 shrink-0 items-center justify-center rounded-lg bg-[#1a1c1b] px-5 font-semibold text-white ${documentPrefilling ? "cursor-wait opacity-60" : "cursor-pointer hover:bg-[#343735]"}`}>
                       <Upload className="mr-2 size-5" />{documentPrefilling ? "Reading documents…" : "Upload documents"}
-                      <input type="file" multiple disabled={documentPrefilling} accept="image/*,text/*,.pdf,.doc,.docx,.rtf,.odt,.ods,.odp,.xls,.xlsx,.ppt,.pptx,.epub,.json,.xml" className="sr-only" onChange={(event) => { void handleDocumentPrefill(event.target.files); event.currentTarget.value = ""; }} />
+                      <input type="file" multiple disabled={documentPrefilling} accept={`image/*,${listingPrefillAccept}`} className="sr-only" onChange={(event) => { void handleDocumentPrefill(event.target.files); event.currentTarget.value = ""; }} />
                     </label>
                   </div>
                   {documentPrefilling && <div className="mt-5"><div className="h-1.5 overflow-hidden rounded-full bg-black/10"><div className="h-full w-2/3 animate-pulse rounded-full bg-[#806c49]" /></div><p className="mt-2 text-sm font-semibold text-[#6f5b39]">Saving privately, reading the evidence, and filling supported fields…</p></div>}
@@ -1538,6 +1597,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                 <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#806c49]">File created · {carName}</p>
                 <h2 className="mt-3 font-display text-3xl sm:text-4xl">Set the deal terms.</h2>
                 <p className="mt-3 text-lg leading-8 text-black/54">Choose who may see the car, then add the details from the call.</p>
+                {prefilledFields.length > 0 && <section className="mt-6 rounded-xl border border-[#60765c]/25 bg-[#60765c]/8 p-4" aria-live="polite"><p className="font-semibold text-[#52654e]">{prefilledFields.length} listing field{prefilledFields.length === 1 ? "" : "s"} filled from the uploaded documents.</p><p className="mt-1 text-sm leading-6 text-black/52">Existing entries were preserved. Please review the extracted details before release.</p>{documentSourceSummary && <p className="mt-3 border-t border-black/8 pt-3 text-xs leading-5 text-black/45">{documentSourceSummary}</p>}</section>}
                 <fieldset className="mt-8">
                   <legend className="admin-label">Initial release</legend>
                   <div className="mt-3 grid gap-3 lg:grid-cols-3">
@@ -1595,7 +1655,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#806c49]">{carName}</p>
                 <h2 className="mt-3 font-display text-3xl sm:text-4xl">Collect the car file.</h2>
-                <p className="mt-3 text-lg leading-8 text-black/54">Upload each item in its proper section. A phone photo works for paperwork, or you can choose a PDF. Every upload saves immediately.</p>
+                <p className="mt-3 text-lg leading-8 text-black/54">Upload each item in its proper section. A phone photo works for paperwork, or you can choose a PDF. Every upload saves immediately, and PDFs fill any still-blank listing fields from documented facts.</p>
                 <div className="mt-8 space-y-3">
                   {fileChecklist.map((item) => {
                     const done = received.includes(item.id) || Boolean(requirementNotes[item.id]?.trim());
@@ -1654,11 +1714,11 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                     );
                   })}
                   <label className="flex min-h-14 cursor-pointer items-center justify-center rounded-xl border border-dashed border-black/18 bg-white px-4 text-sm font-semibold hover:border-[#806c49] hover:bg-[#806c49]/5">
-                    <FileText className="mr-2 size-5 text-[#806c49]" />Upload another supporting document
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*,application/pdf"
+                      <FileText className="mr-2 size-5 text-[#806c49]" />Upload another supporting document
+                      <input
+                        type="file"
+                        multiple
+                        accept={`image/*,${listingPrefillAccept}`}
                       className="sr-only"
                       onChange={(event) => {
                         void handleUploads(event.target.files, "records");
@@ -1671,7 +1731,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                   <section className="mt-7" aria-live="polite">
                     <div className="flex items-end justify-between gap-4">
                       <div><h3 className="text-lg font-semibold">Saved files</h3><p className="mt-1 text-sm text-black/45">Stored with this car and available next time</p></div>
-                      <span className="rounded-full bg-[#60765c]/12 px-3 py-1.5 text-sm font-semibold text-[#52654e]">{uploads.filter((file) => file.status === "saved").length} saved</span>
+                      <div className="flex flex-wrap items-center justify-end gap-2"><span className="rounded-full bg-[#60765c]/12 px-3 py-1.5 text-sm font-semibold text-[#52654e]">{uploads.filter((file) => file.status === "saved").length} saved</span>{savedDocumentsForPrefill.length > 0 && <Button type="button" variant="outline" disabled={documentPrefilling} onClick={() => void rescanSavedDocuments()} className="min-h-10 border-[#806c49]/35 bg-white px-4 text-sm font-semibold text-[#6f5b39] hover:bg-[#806c49]/8">{documentPrefilling ? "Reading documents…" : "Fill listing from saved documents"}</Button>}</div>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {uploads.map((file) => (

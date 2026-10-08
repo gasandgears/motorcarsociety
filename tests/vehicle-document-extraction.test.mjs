@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { blankOnlyPrefill, vehiclePrefillSchema } from "../lib/vehicle-document-extraction.ts";
+import { blankOnlyPrefill, vehicleExtractionInstructions, vehiclePrefillSchema } from "../lib/vehicle-document-extraction.ts";
 
 test("document prefill only fills blank listing fields", () => {
   const current = { year: "1976", make: "", model: "Eldorado", category: "" };
@@ -29,4 +29,17 @@ test("Step 1 exposes document-assisted intake", async () => {
   assert.match(source, /Prefill the entire car listing/);
   assert.match(source, /handleDocumentPrefill/);
   assert.match(source, /documentDraft: true/);
+});
+
+test("intake uploads of PDFs and Word documents prefill blank listing fields", async () => {
+  const source = await readFile(new URL("../app/motorcar-app.tsx", import.meta.url), "utf8");
+  assert.match(source, /savedDocumentIds/);
+  assert.match(source, /prefillListingFromSavedDocuments\(savedCarId, savedDocumentIds\)/);
+  assert.match(source, /listingPrefillAccept/);
+  assert.match(source, /Fill listing from saved documents/);
+});
+
+test("qualified source claims remain available for listing prefill", () => {
+  assert.match(vehicleExtractionInstructions, /reported, observed, provisional, or pending verification/);
+  assert.match(vehicleExtractionInstructions, /conditionSummary, restorationSummary, and provenance/);
 });

@@ -33,11 +33,12 @@ export type VehiclePrefill = z.infer<typeof vehiclePrefillSchema>;
 export const vehicleExtractionInstructions = `You extract collector-car facts from private source documents for staff review.
 
 Rules:
-- Return null for every field that is absent, uncertain, illegible, inferred only from general automotive knowledge, or contradicted by another document.
+- Return null only when a field is absent, illegible, inferred only from general automotive knowledge, or contradicted by another document.
+- A statement explicitly described in the source as reported, observed, provisional, or pending verification is still usable evidence. Preserve that qualification in the extracted value instead of returning null. For example, use "Approximately 9,000 miles reported; odometer evidence pending" rather than omitting mileage.
 - Never invent a VIN, identity, owner, price, mileage, date, specification, history, or condition statement.
 - Preserve VIN/chassis characters exactly as printed.
 - Only name an owner/seller when the documents identify that person in that role.
-- Narrative fields may summarize facts in the supplied documents, but may not add sales claims or outside knowledge.
+- Narrative fields may summarize facts in the supplied documents, but may not add sales claims or outside knowledge. Fill conditionSummary, restorationSummary, and provenance whenever the documents discuss those topics, including when the source explains that records or verification remain pending.
 - Put documented highlights on separate lines without bullets.
 - Keep shortDescription factual and under 449 characters.
 - category must be null unless the documents provide enough vehicle identity to select it confidently.
