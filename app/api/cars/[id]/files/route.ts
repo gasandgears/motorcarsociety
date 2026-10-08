@@ -66,7 +66,7 @@ export async function POST(request: Request, context: RouteContext) {
     const sizeBytes = Number(request.headers.get("x-file-size") || request.headers.get("content-length") || 0);
     const maximumSize = 150 * 1024 * 1024;
     if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) return Response.json({ error: "The file size could not be read." }, { status: 400 });
-    if (sizeBytes > maximumSize) return Response.json({ error: "Files must be 150 MB or smaller." }, { status: 413 });
+    if (sizeBytes > maximumSize) return Response.json({ error: "Files must be 150 MB or smaller. Large walkaround videos should be added with a YouTube link instead." }, { status: 413 });
 
     const filename = safeFilename(request.headers.get("x-file-name") || "upload");
     const contentType = (request.headers.get("content-type") || "application/octet-stream").split(";", 1)[0].trim().toLowerCase().slice(0, 160);
@@ -79,7 +79,7 @@ export async function POST(request: Request, context: RouteContext) {
     const storageKey = `cars/${carId}/${fileId}`;
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (!bytes.byteLength) return Response.json({ error: "The selected file is empty." }, { status: 400 });
-    if (bytes.byteLength > maximumSize) return Response.json({ error: "Files must be 150 MB or smaller." }, { status: 413 });
+    if (bytes.byteLength > maximumSize) return Response.json({ error: "Files must be 150 MB or smaller. Large walkaround videos should be added with a YouTube link instead." }, { status: 413 });
 
     await getBucket().put(storageKey, new Blob([bytes]).stream(), {
       httpMetadata: { contentType },

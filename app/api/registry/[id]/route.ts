@@ -26,7 +26,7 @@ export async function GET(request: Request, context: RouteContext) {
       .from(carFiles)
       .where(and(eq(carFiles.carId, id), inArray(carFiles.category, ["hero", "photos"])))
       .orderBy(asc(carFiles.sortOrder), asc(carFiles.createdAt));
-    const videos = await getDb().select({ id: carFiles.id, filename: carFiles.filename })
+    const videos = await getDb().select({ id: carFiles.id, filename: carFiles.filename, storageKey: carFiles.storageKey, contentType: carFiles.contentType })
       .from(carFiles)
       .where(and(eq(carFiles.carId, id), eq(carFiles.category, "video")))
       .orderBy(asc(carFiles.createdAt));
@@ -63,7 +63,7 @@ export async function GET(request: Request, context: RouteContext) {
       photos: visiblePhotos.map((photo) => ({ id: photo.id, filename: photo.filename, url: `/api/registry/${id}/photos/${photo.id}` })),
       totalPhotoCount: orderedPhotos.length,
       lockedPhotoCount: Math.max(0, orderedPhotos.length - visiblePhotos.length),
-      videos: canSeeSensitive ? videos.map((video) => ({ ...video, url: `/api/registry/${id}/photos/${video.id}` })) : [],
+      videos: canSeeSensitive ? videos.map((video) => ({ id: video.id, filename: video.filename, url: video.contentType === "video/youtube" ? video.storageKey : `/api/registry/${id}/photos/${video.id}`, provider: video.contentType === "video/youtube" ? "youtube" : "upload" })) : [],
       access: staff ? "staff" : paidMember ? "paid" : "free",
     });
   } catch (error) {

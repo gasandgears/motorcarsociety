@@ -405,7 +405,7 @@ type RegistryVehicleData = {
 function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: string; userEmail: string | null; signInPath: string; onBack: () => void }) {
   const [car, setCar] = useState<RegistryVehicleData | null>(null);
   const [photos, setPhotos] = useState<{ id: string; filename: string; url: string }[]>([]);
-  const [videos, setVideos] = useState<{ id: string; filename: string; url: string }[]>([]);
+  const [videos, setVideos] = useState<{ id: string; filename: string; url: string; provider?: "upload" | "youtube" }[]>([]);
   const [access, setAccess] = useState<"free" | "paid" | "staff">("free");
   const [totalPhotoCount, setTotalPhotoCount] = useState(0);
   const [lockedPhotoCount, setLockedPhotoCount] = useState(0);
@@ -432,7 +432,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   useEffect(() => {
     let active = true;
     fetch(`/api/registry/${carId}`, { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; videos?: { id: string; filename: string; url: string }[]; access?: "free" | "paid" | "staff"; totalPhotoCount?: number; lockedPhotoCount?: number; error?: string };
+      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; videos?: { id: string; filename: string; url: string; provider?: "upload" | "youtube" }[]; access?: "free" | "paid" | "staff"; totalPhotoCount?: number; lockedPhotoCount?: number; error?: string };
       if (!response.ok || !payload.car) throw new Error(payload.error || "This vehicle could not be opened.");
       if (active) { setCar(payload.car); setPhotos(payload.photos || []); setVideos(payload.videos || []); setAccess(payload.access || "free"); setTotalPhotoCount(payload.totalPhotoCount || payload.photos?.length || 0); setLockedPhotoCount(payload.lockedPhotoCount || 0); }
     }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "This vehicle could not be opened."); })
@@ -481,7 +481,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
             {videos.length > 0 && <div className="mt-5 border-t border-white/10 pt-5">
               <p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--gold-light)]">Vehicle video</p>
               <div className="mt-3 flex flex-wrap gap-3">{videos.map((video, index) => <button key={video.id} type="button" onClick={() => setActiveVideo(activeVideo === video.id ? null : video.id)} className={`group flex min-h-16 items-center gap-3 rounded-xl border px-4 text-left transition ${activeVideo === video.id ? "border-[var(--gold)] bg-[var(--gold)]/10" : "border-white/12 bg-white/[.035] hover:border-white/28"}`}><span className="grid size-10 place-items-center rounded-full bg-[var(--gold)] text-[#111]"><Play className="ml-0.5 size-5 fill-current" /></span><span><span className="block text-sm font-semibold">{videos.length === 1 ? "Play vehicle video" : `Play video ${index + 1}`}</span><span className="mt-1 block max-w-56 truncate text-xs text-white/45">{video.filename}</span></span></button>)}</div>
-              {activeVideo && <div className="mt-5 aspect-video max-h-[68svh] w-full max-w-full overflow-hidden rounded-xl border border-white/10 bg-black sm:aspect-[16/10] sm:rounded-2xl"><video key={activeVideo} controls autoPlay playsInline preload="metadata" className="block h-full max-h-full w-full max-w-full object-contain"><source src={videos.find((video) => video.id === activeVideo)?.url} /></video></div>}
+              {activeVideo && <div className="mt-5 aspect-video max-h-[68svh] w-full max-w-full overflow-hidden rounded-xl border border-white/10 bg-black sm:aspect-[16/10] sm:rounded-2xl">{videos.find((video) => video.id === activeVideo)?.provider === "youtube" ? <iframe key={activeVideo} src={`${videos.find((video) => video.id === activeVideo)?.url}&autoplay=1`} title={videos.find((video) => video.id === activeVideo)?.filename} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen className="block h-full w-full border-0" /> : <video key={activeVideo} controls autoPlay playsInline preload="metadata" className="block h-full max-h-full w-full max-w-full object-contain"><source src={videos.find((video) => video.id === activeVideo)?.url} /></video>}</div>}
             </div>}
           </section>
           <aside className="xl:sticky xl:top-32 xl:self-start">
@@ -1061,6 +1061,8 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const [photoOrdering, setPhotoOrdering] = useState(false);
   const [heroProcessing, setHeroProcessing] = useState(false);
   const [documentPrefilling, setDocumentPrefilling] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [savingYoutube, setSavingYoutube] = useState(false);
   const [prefilledFields, setPrefilledFields] = useState<string[]>([]);
   const [documentSourceSummary, setDocumentSourceSummary] = useState("");
   const heroAutoStarted = useRef(false);
@@ -1375,6 +1377,22 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
         setSaveError(error instanceof Error ? error.message : "The uploaded documents could not be used to fill the listing.");
       }
     }
+  };
+
+  const saveYoutubeVideo = async () => {
+    if (!savedCarId || !youtubeUrl.trim() || savingYoutube) return;
+    setSavingYoutube(true);
+    setSaveError("");
+    try {
+      const response = await fetch(`/api/cars/${savedCarId}/video-link`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: youtubeUrl }) });
+      const data = await response.json() as { file?: { id: string; filename: string; sizeBytes: number; contentType: string }; error?: string };
+      if (!response.ok || !data.file) throw new Error(data.error || "The YouTube video link could not be saved.");
+      setUploads((current) => [...current, { id: `saved-${data.file!.id}`, serverId: data.file!.id, name: data.file!.filename, size: data.file!.sizeBytes, type: data.file!.contentType, previewUrl: null, category: "video", status: "saved", sourceFile: null }]);
+      setReceived((current) => current.includes("video") ? current : [...current, "video"]);
+      setYoutubeUrl("");
+      setSaveNotice("YouTube video added to the Registry listing");
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "The YouTube video link could not be saved."); }
+    finally { setSavingYoutube(false); }
   };
 
   const prefillListingFromSavedDocuments = async (carId: string, fileIds: string[]) => {
@@ -1705,6 +1723,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             </>}
                           </div>
                         </div>
+                        {item.id === "video" && <div className="mt-4 flex flex-col gap-3 border-t border-black/8 pt-4 sm:flex-row sm:items-end"><div className="min-w-0 flex-1"><label className="admin-label" htmlFor="youtube-video-url">YouTube URL</label><input id="youtube-video-url" type="url" value={youtubeUrl} onChange={(event) => setYoutubeUrl(event.target.value)} className="admin-field mt-2" placeholder="https://youtu.be/..." /></div><Button type="button" disabled={savingYoutube || !youtubeUrl.trim()} onClick={() => void saveYoutubeVideo()} className="min-h-[3.55rem] bg-[#1a1c1b] px-5 text-white hover:bg-[#343735]">{savingYoutube ? "Adding…" : "Add YouTube video"}</Button><p className="text-xs leading-5 text-black/45 sm:basis-full">For large videos, upload to YouTube as unlisted, then paste its link here. The Registry displays it inside the MCS video player.</p></div>}
                         {item.id !== "hero" && item.id !== "photos" && item.id !== "video" && <div className="mt-4 border-t border-black/8 pt-4">
                           <div className="flex items-center justify-between gap-3"><label className="admin-label" htmlFor={`requirement-${item.id}`}>Manual entry or document details</label>{requirementNotes[item.id] && <span className="text-xs font-semibold text-[#60765c]">Editable document text</span>}</div>
                           <textarea id={`requirement-${item.id}`} value={requirementNotes[item.id] || ""} onChange={(event) => setRequirementNotes((current) => ({ ...current, [item.id]: event.target.value }))} onBlur={() => void saveRequirementEntry(item.id)} className="admin-field mt-2 min-h-28 resize-y" placeholder={`Enter ${item.label.toLowerCase()} manually, or upload a text-based PDF to prefill this field.`} />

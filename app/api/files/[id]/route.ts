@@ -37,7 +37,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     const { id } = await context.params;
     const [file] = await getDb().select().from(carFiles).where(eq(carFiles.id, id)).limit(1);
     if (!file) return Response.json({ error: "File not found." }, { status: 404 });
-    await getBucket().delete(file.storageKey);
+    if (file.contentType !== "video/youtube") await getBucket().delete(file.storageKey);
     await getDb().delete(carFiles).where(eq(carFiles.id, id));
     return Response.json({ deleted: true });
   } catch (error) {
