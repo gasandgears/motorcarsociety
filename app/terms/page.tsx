@@ -1,3 +1,7 @@
+import { publicMetadata } from "@/lib/public-seo";
+
+export const metadata = publicMetadata("/terms", "Terms | Motorcar Society Private Registry", "Read the terms for Motorcar Society membership, vehicle information, Registry access and private introductions.");
+
 import { ProseSection, PublicHero, PublicPageShell } from "@/components/public-page-shell";
 
 export default function TermsPage() {
