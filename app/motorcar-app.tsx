@@ -281,10 +281,10 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
                 <div className="mb-6 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--gold-light)]">
                   <span className="h-px w-10 bg-[var(--gold)]" />{message.eyebrow}
                 </div>
-                <h1 className="max-w-[42rem] font-display text-[clamp(3.1rem,6.2vw,6.2rem)] leading-[0.9] tracking-[-0.025em] text-white">
+                <p className="max-w-[42rem] font-display text-[clamp(3.1rem,6.2vw,6.2rem)] leading-[0.9] tracking-[-0.025em] text-white">
                   {message.title}
                   <span className="mt-2 block text-[0.62em] leading-[1.02] text-white/95">{message.secondLine}</span>
-                </h1>
+                </p>
                 <p className="mt-7 max-w-[34rem] text-lg leading-8 text-white/76 sm:text-xl">{message.body}</p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Button tabIndex={index === heroIndex ? 0 : -1} onClick={() => document.getElementById("registry-list")?.scrollIntoView({ behavior: "smooth" })} className="h-14 bg-[var(--gold)] px-7 text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">Explore the Registry<ArrowRight className="ml-2 size-5" /></Button>
@@ -302,6 +302,13 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
           {SOCIETY_HERO_IMAGES.map((image, index) => (
             <button key={image.src} onClick={() => changeHero(index)} aria-label={`Show image ${index + 1} of ${SOCIETY_HERO_IMAGES.length}`} aria-current={index === heroIndex} className={`h-1 rounded-full transition-all ${index === heroIndex ? "w-10 bg-[var(--gold-light)]" : "w-5 bg-white/35 hover:bg-white/65"}`} />
           ))}
+        </div>
+      </section>
+
+      <section className="border-b border-white/10 px-5 py-12 sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-[90rem] gap-8 md:grid-cols-2">
+          <div><h1 className="font-display text-3xl">Classic cars, collector cars and supercars</h1><p className="mt-4 max-w-2xl leading-7 text-white/65">Explore approved Registry previews and speak with Barnaby about your search for a classic car, collector car or high-end supercar. A Registry entry records a car and its story; contact us to confirm whether a particular car is offered for sale.</p><a href="/buying-collector-cars" className="mt-5 inline-block text-[var(--gold-light)] underline underline-offset-4">How private collector-car buying works</a></div>
+          <div><h2 className="font-display text-3xl">Sell your collector car privately</h2><p className="mt-4 max-w-2xl leading-7 text-white/65">Considering an alternative to a classic-car auction? Start a private conversation about your car, its history and the introductions you are seeking. Barnaby reviews submissions personally, and a submission does not publish your car.</p><a href="/submit-a-car" className="mt-5 inline-block text-[var(--gold-light)] underline underline-offset-4">Discuss a private sale with Barnaby</a></div>
         </div>
       </section>
 
@@ -326,7 +333,7 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
                 className="group min-h-44 overflow-hidden rounded-lg border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
                 <div className="relative flex h-20 items-center justify-between overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_20%_0%,rgba(179,154,104,0.15),transparent_58%)] px-4">
-                  {car.heroImageUrl ? <><img src={car.heroImageUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-[1.03] object-cover saturate-[.78] contrast-[1.08] brightness-[.72] transition duration-700 group-hover:scale-100 group-hover:brightness-[.82]" /><span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,8,8,.72),transparent_55%,rgba(7,8,8,.2))]" /></> : <span className="font-display text-4xl text-white/[0.08]">{car.code}</span>}
+                  {car.heroImageUrl ? <><img src={car.heroImageUrl} alt={`${car.year} ${car.name}`} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-[1.03] object-cover saturate-[.78] contrast-[1.08] brightness-[.72] transition duration-700 group-hover:scale-100 group-hover:brightness-[.82]" /><span className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,8,8,.72),transparent_55%,rgba(7,8,8,.2))]" /></> : <span className="font-display text-4xl text-white/[0.08]">{car.code}</span>}
                   <span className="rounded-full border border-white/14 px-2 py-1 text-[0.58rem] font-semibold uppercase tracking-[0.1em] text-white/60">{car.status}</span>
                 </div>
                 <div className="p-4">

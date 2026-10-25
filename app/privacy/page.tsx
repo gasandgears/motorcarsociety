@@ -1,3 +1,7 @@
+import { publicMetadata } from "@/lib/public-seo";
+
+export const metadata = publicMetadata("/privacy", "Privacy | Motorcar Society Private Registry", "How Motorcar Society handles member information, vehicle submissions, private records and Registry inquiries.");
+
 import { ProseSection, PublicHero, PublicPageShell } from "@/components/public-page-shell";
 
 export default function PrivacyPage() {
