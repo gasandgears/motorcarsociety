@@ -50,7 +50,9 @@ test('Cards open an inquiry dialog without linking to unreleased details; newsle
   assert.match(source, /Email notification is delayed/);
 });
 test('Notification sender fails truthfully when unconfigured and uses verified business recipient when accepted', async () => {
-  const { notifyCarInquiry, inquiryRecipient } = await moduleFrom('../lib/inquiry-notifications.ts');
+  const { notifyCarInquiry } = await moduleFrom('../lib/inquiry-notifications.ts');
+  const inquiryRecipient = 'dean-test@example.invalid';
+  const oldTo = process.env.INQUIRY_EMAIL_TO;
   const oldKey = process.env.RESEND_API_KEY, oldFrom = process.env.INQUIRY_EMAIL_FROM, oldFetch = globalThis.fetch;
   try {
     delete process.env.RESEND_API_KEY; delete process.env.INQUIRY_EMAIL_FROM;
@@ -59,11 +61,15 @@ test('Notification sender fails truthfully when unconfigured and uses verified b
     const inquiry = { ...valid, id: 'fixture', carTitle: 'Fixture car' };
     assert.equal(await notifyCarInquiry(inquiry), false); assert.equal(requests, 0);
     process.env.RESEND_API_KEY = 'fixture-key'; process.env.INQUIRY_EMAIL_FROM = 'fixture@example.invalid';
+    delete process.env.INQUIRY_EMAIL_TO;
+    assert.equal(await notifyCarInquiry(inquiry), false); assert.equal(requests, 0);
+    process.env.INQUIRY_EMAIL_TO = inquiryRecipient;
     assert.equal(await notifyCarInquiry(inquiry), true); assert.equal(requests, 1);
     globalThis.fetch = async () => ({ ok: false });
     assert.equal(await notifyCarInquiry(inquiry), false);
   } finally {
     globalThis.fetch = oldFetch;
+    if (oldTo === undefined) delete process.env.INQUIRY_EMAIL_TO; else process.env.INQUIRY_EMAIL_TO = oldTo;
     if (oldKey === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = oldKey;
     if (oldFrom === undefined) delete process.env.INQUIRY_EMAIL_FROM; else process.env.INQUIRY_EMAIL_FROM = oldFrom;
   }

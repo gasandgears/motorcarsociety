@@ -1,9 +1,9 @@
-// Barnaby's established Motorcar Society business contact, published on /contact.
-export const inquiryRecipient = "bbforcars@gmail.com";
+// Notification routing must be explicitly configured; an unset recipient keeps inquiries saved without sending.
 export async function notifyCarInquiry(inquiry: { id: string; carId: string; carTitle: string; name: string; email: string; phone: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.INQUIRY_EMAIL_FROM;
-  if (!apiKey || !from) return false;
+  const inquiryRecipient = process.env.INQUIRY_EMAIL_TO?.trim();
+  if (!apiKey || !from || !inquiryRecipient || !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(inquiryRecipient)) return false;
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST", signal: AbortSignal.timeout(12000),
