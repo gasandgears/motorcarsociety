@@ -38,7 +38,7 @@ export default async function VehiclePage({ params }: PageProps) {
     <ProseSection>
       {teaser.heroImageUrl && <img src={teaser.heroImageUrl} alt={`${teaser.year} ${teaser.make} ${teaser.model}`} className="w-full rounded-xl" />}
       <h2>Discover more about this car</h2>
-      <p><a href={signIn}>Log in</a> or <a href={`${signIn}${signIn.includes("?") ? "&" : "?"}mode=register`}>become a member</a> to request the appropriate access to further vehicle information. Some cars require a private introduction.</p>
+      <p><a href={signIn}>Log in</a> or <a href={`${signIn}${signIn.includes("?") ? "&" : "?"}mode=register`}>become a member</a> to view the full listing after membership approval.</p>
       <p><a href="/contact">Contact Barnaby</a> for more information, current availability, and private introductions.</p>
     </ProseSection>
   </main></PublicPageShell>;

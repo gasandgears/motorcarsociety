@@ -12,8 +12,7 @@ export async function GET(request: Request) {
     const account = getAuthenticatedUser(request) ? await getOrCreateAccount(request) : null;
     const staff = account?.status === "approved" && (account.role === "admin" || account.role === "barnaby");
     const approvedMember = account?.status === "approved" && account.role === "member";
-    const paidMember = approvedMember && ["standard", "priority", "private"].includes(account?.tier || "");
-    const canSeeSensitive = staff || paidMember;
+    const canSeeSensitive = staff || approvedMember;
     const url = new URL(request.url);
     const search = (url.searchParams.get("search") || "").trim().slice(0, 100);
     const category = (url.searchParams.get("category") || "").trim().slice(0, 80);
@@ -53,7 +52,7 @@ export async function GET(request: Request) {
       const heroImageUrl = heroByCar.has(record.id) ? `/api/registry/${record.id}/photos/${heroByCar.get(record.id)!.id}` : undefined;
       if (!canViewRegistryCar(record, Boolean(staff), Boolean(approvedMember))) return registryTeaser(record, heroImageUrl);
       return { ...record, detail: canSeeSensitive ? record.detail : "", expectedPrice: canSeeSensitive ? record.expectedPrice : "", heroImageUrl };
-    }), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : paidMember ? "paid" : approvedMember ? "free" : "public" }, { headers: { "Cache-Control": "private, no-store" } });
+    }), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : approvedMember ? "member" : "public" }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return serverError(error, "The Registry is temporarily unavailable.");
   }

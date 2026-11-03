@@ -211,7 +211,7 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
   const [pageCount, setPageCount] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [access, setAccess] = useState<"public" | "free" | "paid" | "staff">("public");
+  const [access, setAccess] = useState<"public" | "member" | "staff">("public");
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
   const [heroTextPhase, setHeroTextPhase] = useState<"visible" | "exiting" | "entering">("visible");
@@ -240,7 +240,7 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
     if (search.trim()) query.set("search", search.trim());
     if (category !== "All") query.set("category", category);
     fetch(`/api/registry?${query}`, { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { cars?: RegistryCar[]; categories?: string[]; pageCount?: number; total?: number; access?: "public" | "free" | "paid" | "staff" };
+      const payload = await response.json() as { cars?: RegistryCar[]; categories?: string[]; pageCount?: number; total?: number; access?: "public" | "member" | "staff" };
       if (active && response.ok) { setRegistryCars(payload.cars || []); setCategories(payload.categories || []); setPageCount(payload.pageCount || 1); setTotal(payload.total || 0); setAccess(payload.access || "public"); }
     }).catch(() => undefined).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -249,7 +249,7 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
     id: car.id,
     year: car.year,
     name: `${car.make} ${car.model}`.trim() || "Confidential motorcar",
-    detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : access === "public" ? "Preview · Log in or contact Barnaby" : access === "free" ? "Paid member details protected" : "Private details available"),
+    detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : access === "public" ? "Preview · Log in or contact Barnaby" : "Private details available"),
     status: !car.status || car.status === "released" ? "Registry Preview" : "Internal Review",
     category: car.category,
     registryId: car.registryId,
@@ -414,9 +414,6 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   const [car, setCar] = useState<RegistryVehicleData | null>(null);
   const [photos, setPhotos] = useState<{ id: string; filename: string; url: string }[]>([]);
   const [videos, setVideos] = useState<{ id: string; filename: string; url: string; provider?: "upload" | "youtube" }[]>([]);
-  const [access, setAccess] = useState<"free" | "paid" | "staff">("free");
-  const [totalPhotoCount, setTotalPhotoCount] = useState(0);
-  const [lockedPhotoCount, setLockedPhotoCount] = useState(0);
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -440,9 +437,9 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   useEffect(() => {
     let active = true;
     fetch(`/api/registry/${carId}`, { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; videos?: { id: string; filename: string; url: string; provider?: "upload" | "youtube" }[]; access?: "free" | "paid" | "staff"; totalPhotoCount?: number; lockedPhotoCount?: number; error?: string };
+      const payload = await response.json() as { car?: RegistryVehicleData; photos?: { id: string; filename: string; url: string }[]; videos?: { id: string; filename: string; url: string; provider?: "upload" | "youtube" }[]; access?: "member" | "staff"; totalPhotoCount?: number; lockedPhotoCount?: number; error?: string };
       if (!response.ok || !payload.car) throw new Error(payload.error || "This vehicle could not be opened.");
-      if (active) { setCar(payload.car); setPhotos(payload.photos || []); setVideos(payload.videos || []); setAccess(payload.access || "free"); setTotalPhotoCount(payload.totalPhotoCount || payload.photos?.length || 0); setLockedPhotoCount(payload.lockedPhotoCount || 0); }
+      if (active) { setCar(payload.car); setPhotos(payload.photos || []); setVideos(payload.videos || []); }
     }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "This vehicle could not be opened."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -485,7 +482,6 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
               <div className="absolute bottom-4 right-4 rounded-full bg-black/70 px-4 py-2 text-sm backdrop-blur">{photos.length ? `${activePhoto + 1} / ${photos.length}` : "Private imagery pending"}</div>
             </div>
             {photos.length > 1 && <div className="mt-3 flex w-full max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-2 sm:mt-4 sm:gap-3 scrollbar-thin">{photos.slice(0, 18).map((photo, index) => <button key={photo.id} onClick={() => setActivePhoto(index)} aria-label={`View photo ${index + 1}`} className={`h-16 w-[5.5rem] shrink-0 overflow-hidden rounded-lg border sm:h-20 sm:w-28 ${index === activePhoto ? "border-[var(--gold-light)]" : "border-white/10"}`}><img src={photo.url} alt="" className="block h-full w-full object-cover" /></button>)}</div>}
-            {access === "free" && lockedPhotoCount > 0 && <div className="mt-4 flex items-center gap-3 rounded-xl border border-[var(--gold)]/25 bg-[var(--gold)]/[.07] p-4 text-sm leading-6 text-white/70"><LockKeyhole className="size-5 shrink-0 text-[var(--gold-light)]" /><span>You can view the first five photos. {lockedPhotoCount} more {lockedPhotoCount === 1 ? "photo is" : "photos are"} available with paid membership.</span></div>}
             {videos.length > 0 && <div className="mt-5 border-t border-white/10 pt-5">
               <p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--gold-light)]">Vehicle video</p>
               <div className="mt-3 flex flex-wrap gap-3">{videos.map((video, index) => <button key={video.id} type="button" onClick={() => setActiveVideo(activeVideo === video.id ? null : video.id)} className={`group flex min-h-16 items-center gap-3 rounded-xl border px-4 text-left transition ${activeVideo === video.id ? "border-[var(--gold)] bg-[var(--gold)]/10" : "border-white/12 bg-white/[.035] hover:border-white/28"}`}><span className="grid size-10 place-items-center rounded-full bg-[var(--gold)] text-[#111]"><Play className="ml-0.5 size-5 fill-current" /></span><span><span className="block text-sm font-semibold">{videos.length === 1 ? "Play vehicle video" : `Play video ${index + 1}`}</span><span className="mt-1 block max-w-56 truncate text-xs text-white/45">{video.filename}</span></span></button>)}</div>
@@ -497,8 +493,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
             <h1 className="mt-4 font-display text-4xl leading-[0.95] sm:text-6xl">{car.year}<span className="mt-3 block text-[0.58em] leading-tight sm:text-[0.55em]">{car.make} {car.model}</span></h1>
             <div className="mt-7 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--gold)]/35 bg-[var(--gold)]/10 px-4 py-2 text-sm font-semibold text-[var(--gold-light)]">Registry release</span>{car.category && car.category !== "Uncategorized" && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.category}</span>}{car.location && <span className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/62">{car.location}</span>}</div>
             <div className="mt-6 whitespace-pre-line text-base leading-7 text-white/67 sm:mt-7 sm:text-lg sm:leading-8">{car.shortDescription || car.notes || "Detailed ownership, condition and provenance information is available in the private dossier."}</div>
-            <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{access === "free" ? "Paid members" : priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{access === "free" && lockedPhotoCount ? `${photos.length} of ${totalPhotoCount}` : `${photos.length} photos`}</dd></div></dl>
-            {access === "free" && <div className="mt-4 rounded-xl border border-white/10 bg-white/[.035] p-4 text-sm leading-6 text-white/62"><LockKeyhole className="mb-2 size-5 text-[var(--gold-light)]" />Owner identity, price, location, full gallery and video are reserved for approved paid members.</div>}
+            <dl className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Guidance</dt><dd className="mt-2 font-display text-2xl">{priceGuidance}</dd></div><div className="rounded-xl border border-white/10 bg-white/[0.035] p-4"><dt className="text-xs font-bold uppercase tracking-[0.12em] text-white/40">Gallery</dt><dd className="mt-2 font-display text-2xl">{`${photos.length} photos`}</dd></div></dl>
             {error && <p className="mt-5 rounded-lg border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-100">{error}</p>}
             {userEmail ? <Button disabled={requesting || requested} onClick={() => void requestDossier()} className="mt-7 h-14 w-full bg-[var(--gold)] text-base font-semibold text-[#111] hover:bg-[var(--gold-light)]">{requesting ? "Sending request…" : requested ? "Dossier requested" : "Request Private Dossier"}{requested ? <Check className="ml-2 size-5" /> : <ArrowRight className="ml-2 size-5" />}</Button> : <a href={signInPath} target="_top" className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-[var(--gold)] px-6 font-semibold text-[#111]">Sign in to request dossier<ArrowRight className="ml-2 size-5" /></a>}
             {userEmail && <Dialog>
@@ -511,7 +506,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
                 <div className="mt-6 space-y-5">
                   <div><label className="field-label" htmlFor="share-email">Their email address</label><input id="share-email" type="email" value={shareEmail} onChange={(event) => setShareEmail(event.target.value)} className="field mt-2" placeholder="friend@example.com" /></div>
                   <div><label className="field-label" htmlFor="share-note">Your note</label><textarea id="share-note" value={shareNote} onChange={(event) => setShareNote(event.target.value)} className="field mt-2 min-h-28 resize-y" /></div>
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-white/40">Important</p><p className="mt-2 text-sm leading-6 text-white/65">They must sign in or create a free account before they can see the car. Paid membership is required for private owner, price, location and full-gallery details.</p></div>
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4"><p className="text-xs font-bold uppercase tracking-[.12em] text-white/40">Important</p><p className="mt-2 text-sm leading-6 text-white/65">Anyone can view the preview. Approved members can view the full listing, price, location, gallery and video. Confidential seller records remain protected.</p></div>
                 </div>
                 <DialogFooter className="mt-6 grid gap-3 sm:grid-cols-2">
                   <Button type="button" variant="outline" onClick={() => void copyShareLink()} className="h-13 border-white/18 bg-transparent text-white hover:bg-white hover:text-black">{linkCopied ? <Check className="mr-2 size-5" /> : <Copy className="mr-2 size-5" />}{linkCopied ? "Link copied" : "Copy link"}</Button>

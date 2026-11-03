@@ -16,8 +16,7 @@ export async function GET(request: Request, context: RouteContext) {
     const account = getAuthenticatedUser(request) ? await getOrCreateAccount(request) : null;
     const staff = account?.status === "approved" && (account.role === "admin" || account.role === "barnaby");
     const member = account?.status === "approved" && account.role === "member";
-    const paidMember = member && ["standard", "priority", "private"].includes(account?.tier || "");
-    const canSeeSensitive = staff || paidMember;
+    const canSeeSensitive = staff || member;
     const [car] = await getDb().select().from(cars).where(eq(cars.id, id)).limit(1);
     if (!car) return Response.json({ error: "Vehicle not found." }, { status: 404 });
     const visible = canViewRegistryCar(car, staff, Boolean(member));
@@ -33,7 +32,7 @@ export async function GET(request: Request, context: RouteContext) {
       .orderBy(asc(carFiles.createdAt));
 
     const orderedPhotos = photos.sort((a, b) => Number(b.category === "hero") - Number(a.category === "hero") || (a.category === "hero" && b.category === "hero" ? b.createdAt - a.createdAt : 0));
-    const visiblePhotos = canSeeSensitive ? orderedPhotos : orderedPhotos.slice(0, 5);
+    const visiblePhotos = orderedPhotos;
     return Response.json({
       car: {
         id: car.id,
@@ -65,7 +64,7 @@ export async function GET(request: Request, context: RouteContext) {
       totalPhotoCount: orderedPhotos.length,
       lockedPhotoCount: Math.max(0, orderedPhotos.length - visiblePhotos.length),
       videos: canSeeSensitive ? videos.map((video) => ({ id: video.id, filename: video.filename, url: video.contentType === "video/youtube" ? video.storageKey : `/api/registry/${id}/photos/${video.id}`, provider: video.contentType === "video/youtube" ? "youtube" : "upload" })) : [],
-      access: staff ? "staff" : paidMember ? "paid" : "free",
+      access: staff ? "staff" : "member",
     }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return serverError(error, "The vehicle details could not be loaded.");
