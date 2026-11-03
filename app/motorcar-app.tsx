@@ -1696,7 +1696,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             <p className="mt-1 text-sm text-black/45">{item.id === "hero" && heroProcessing ? "Automatically matching the homepage setting and color grade…" : savedCount ? `${savedCount} file${savedCount === 1 ? "" : "s"} saved` : item.help}</p>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {item.id === "hero" ? <span className="inline-flex min-h-11 items-center rounded-lg border border-[#806c49]/20 bg-white px-4 text-sm font-semibold text-[#6f5b39]">Automatic from cover photo</span> : <>
+                            {item.id === "hero" ? <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-[#806c49]/20 bg-white px-4 text-sm font-semibold text-[#6f5b39]">Upload finished hero<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Upload finished hero" onChange={(event) => { void handleUploads(event.target.files, "hero"); event.currentTarget.value = ""; }} /></label> : <>
                             {item.id !== "photos" && item.id !== "video" && (
                               <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-black/14 bg-white px-4 text-sm font-semibold hover:border-[#806c49]">
                                 <Camera className="mr-2 size-4" />Scan / photograph

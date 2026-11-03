@@ -125,3 +125,10 @@ test('Actual media handler permits full gallery for approved free member and onl
     assert.equal(response.status, expected);
   }
 });
+
+test('Finished hero upload uses hero category without regenerating the image or saving release status', async () => {
+  const source = await readFile(new URL('../app/motorcar-app.tsx', import.meta.url), 'utf8');
+  assert.match(source, /aria-label="Upload finished hero"/);
+  assert.match(source, /handleUploads\(event.target.files, "hero"\)/);
+  assert.match(source, /if \(category === "photos" && !currentHeroId && firstSavedId\) void styleListingHero/);
+});
