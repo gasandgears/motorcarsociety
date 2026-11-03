@@ -42,7 +42,7 @@ export async function GET(request: Request, context: RouteContext) {
         model: car.model,
         location: canSeeSensitive ? car.location : "",
         expectedPrice: canSeeSensitive ? car.expectedPrice : "",
-        notes: car.notes,
+        notes: staff ? car.notes : "",
         exteriorColor: car.exteriorColor,
         interiorColor: car.interiorColor,
         mileage: car.mileage,
@@ -66,7 +66,7 @@ export async function GET(request: Request, context: RouteContext) {
       lockedPhotoCount: Math.max(0, orderedPhotos.length - visiblePhotos.length),
       videos: canSeeSensitive ? videos.map((video) => ({ id: video.id, filename: video.filename, url: video.contentType === "video/youtube" ? video.storageKey : `/api/registry/${id}/photos/${video.id}`, provider: video.contentType === "video/youtube" ? "youtube" : "upload" })) : [],
       access: staff ? "staff" : paidMember ? "paid" : "free",
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return serverError(error, "The vehicle details could not be loaded.");
   }

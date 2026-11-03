@@ -74,7 +74,7 @@ type MemberAccount = {
   updatedAt: number;
 };
 
-type RegistryCar = { id: string; year: string; make: string; model: string; detail: string; expectedPrice: string; visibility: string; status: string; category: string; registryId: string; updatedAt: number; heroImageUrl?: string };
+type RegistryCar = { id: string; year: string; make: string; model: string; detail?: string; expectedPrice?: string; visibility?: string; status?: string; category: string; registryId?: string; updatedAt?: number; heroImageUrl?: string };
 
 function Brand() {
   return (
@@ -249,8 +249,8 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
     id: car.id,
     year: car.year,
     name: `${car.make} ${car.model}`.trim() || "Confidential motorcar",
-    detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : access === "public" ? "Register to view this car" : access === "free" ? "Paid member details protected" : "Private details available"),
-    status: car.status === "released" ? "Registry Preview" : "Internal Review",
+    detail: car.detail || (car.expectedPrice ? `Guidance ${car.expectedPrice}` : access === "public" ? "Preview · Log in or contact Barnaby" : access === "free" ? "Paid member details protected" : "Private details available"),
+    status: !car.status || car.status === "released" ? "Registry Preview" : "Internal Review",
     category: car.category,
     registryId: car.registryId,
     heroImageUrl: car.heroImageUrl,
@@ -319,8 +319,9 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
             <p className="text-sm text-white/48">{total} vehicle{total === 1 ? "" : "s"}</p>
           </div>
 
+          <p className="mt-5 text-sm leading-6 text-white/60">Preview the cars below. Log in or become a member for further information, or <a href="/contact" className="text-[var(--gold-light)] underline underline-offset-4">contact Barnaby</a> to discuss current availability.</p>
           <div className="mt-8 grid gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-3 md:grid-cols-[minmax(0,1fr)_17rem]">
-            <label className="relative"><span className="sr-only">Search the Registry</span><Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-white/38" /><input value={search} onChange={(event) => { setLoading(true); setSearch(event.target.value); setPage(1); }} className="field min-h-12 pl-12" placeholder="Search year, make, model or Registry ID" /></label>
+            <label className="relative"><span className="sr-only">Search the Registry</span><Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-white/38" /><input value={search} onChange={(event) => { setLoading(true); setSearch(event.target.value); setPage(1); }} className="field min-h-12 pl-12" placeholder="Search year, make or model" /></label>
             <label><span className="sr-only">Filter by category</span><NativeSelect value={category} onChange={(event) => { setLoading(true); setCategory(event.target.value); setPage(1); }} className="h-12 w-full border-white/15 bg-[#181a19] text-white"><NativeSelectOption value="All">All categories</NativeSelectOption>{categories.filter((item) => item !== "Uncategorized").map((item) => <NativeSelectOption key={item} value={item}>{item}</NativeSelectOption>)}<NativeSelectOption value="Uncategorized">Uncategorized</NativeSelectOption></NativeSelect></label>
           </div>
 
@@ -328,7 +329,7 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
             {cards.map((car) => (
               <a
                 key={car.id}
-                href={userEmail ? `/registry/${car.id}` : `/signin?return_to=${encodeURIComponent(`/registry/${car.id}`)}&mode=register`}
+                href={`/registry/${car.id}`}
                 onClick={userEmail ? (event) => { event.preventDefault(); onOpenCar(car.id); } : undefined}
                 className="group min-h-44 overflow-hidden rounded-lg border border-white/10 bg-[#181a19] text-left transition hover:border-[var(--gold)]/65 hover:bg-[#1d1f1e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-light)]"
               >
@@ -467,7 +468,7 @@ function RegistryVehicle({ carId, userEmail, signInPath, onBack }: { carId: stri
   };
 
   if (loading) return <main className="min-h-[calc(100vh-5.25rem)] bg-[#101211] px-5 py-14 text-white sm:px-8 lg:px-12"><div className="mx-auto h-[38rem] max-w-[90rem] animate-pulse rounded-2xl bg-white/5" /></main>;
-  if (!car) return <main className="grid min-h-[calc(100vh-5.25rem)] place-items-center bg-[#101211] px-5 text-white"><div className="max-w-lg text-center"><h1 className="font-display text-4xl">Vehicle unavailable</h1><p className="mt-4 text-white/60">{error}</p><Button onClick={onBack} className="mt-7 bg-[var(--gold)] text-black">Return to the Registry</Button></div></main>;
+  if (!car) return <main className="grid min-h-[calc(100vh-5.25rem)] place-items-center bg-[#101211] px-5 text-white"><div className="max-w-lg text-center"><h1 className="font-display text-4xl">Vehicle unavailable</h1><p className="mt-4 text-white/60">{error}</p><p className="mt-4"><a href="/contact" className="text-[var(--gold-light)] underline underline-offset-4">Contact Barnaby for a private introduction</a></p><Button onClick={onBack} className="mt-7 bg-[var(--gold)] text-black">Return to the Registry</Button></div></main>;
 
   return (
     <main className="min-h-[calc(100vh-5.25rem)] overflow-x-hidden bg-[#101211] text-white">

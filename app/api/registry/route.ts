@@ -1,3 +1,4 @@
+import { canViewRegistryCar, registryTeaser } from "@/lib/registry-access";
 import { and, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 
 import { getDb } from "@/db";
@@ -19,12 +20,12 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
     const pageSize = 12;
     const conditions: SQL[] = [];
-    const visibilityFilter = staff ? undefined : and(eq(cars.status, "released"), approvedMember ? inArray(cars.visibility, ["public", "members"]) : eq(cars.visibility, "public"));
+    const visibilityFilter = staff ? undefined : and(eq(cars.status, "released"), inArray(cars.visibility, ["public", "members", "private"]));
     if (visibilityFilter) conditions.push(visibilityFilter);
     if (category && category !== "All") conditions.push(eq(cars.category, category));
     if (search) {
       const term = `%${search.replace(/[%_]/g, "")}%`;
-      conditions.push(or(like(cars.year, term), like(cars.make, term), like(cars.model, term), like(cars.registryId, term))!);
+      conditions.push(or(like(cars.year, term), like(cars.make, term), like(cars.model, term), ...(staff ? [like(cars.registryId, term)] : []))!);
     }
     const where = conditions.length ? and(...conditions) : undefined;
     const db = getDb();
@@ -48,7 +49,11 @@ export async function GET(request: Request) {
     const [totalRow] = await db.select({ value: count() }).from(cars).where(where);
     const categoryRows = await db.selectDistinct({ category: cars.category }).from(cars).where(visibilityFilter).orderBy(cars.category);
     const total = totalRow?.value || 0;
-    return Response.json({ cars: records.map((record) => ({ ...record, detail: canSeeSensitive ? record.detail : "", expectedPrice: canSeeSensitive ? record.expectedPrice : "", heroImageUrl: heroByCar.has(record.id) ? `/api/registry/${record.id}/photos/${heroByCar.get(record.id)!.id}` : undefined })), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : paidMember ? "paid" : approvedMember ? "free" : "public" });
+    return Response.json({ cars: records.map((record) => {
+      const heroImageUrl = heroByCar.has(record.id) ? `/api/registry/${record.id}/photos/${heroByCar.get(record.id)!.id}` : undefined;
+      if (!canViewRegistryCar(record, Boolean(staff), Boolean(approvedMember))) return registryTeaser(record, heroImageUrl);
+      return { ...record, detail: canSeeSensitive ? record.detail : "", expectedPrice: canSeeSensitive ? record.expectedPrice : "", heroImageUrl };
+    }), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : paidMember ? "paid" : approvedMember ? "free" : "public" }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return serverError(error, "The Registry is temporarily unavailable.");
   }
