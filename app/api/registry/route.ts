@@ -19,7 +19,8 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
     const pageSize = 12;
     const conditions: SQL[] = [];
-    if (!staff) conditions.push(eq(cars.status, "released"));
+    const visibilityFilter = staff ? undefined : and(eq(cars.status, "released"), approvedMember ? inArray(cars.visibility, ["public", "members"]) : eq(cars.visibility, "public"));
+    if (visibilityFilter) conditions.push(visibilityFilter);
     if (category && category !== "All") conditions.push(eq(cars.category, category));
     if (search) {
       const term = `%${search.replace(/[%_]/g, "")}%`;
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
     const heroByCar = new Map<string, { id: string; category: string }>();
     imageFiles.forEach((file) => { if (file.category === "hero" && !heroByCar.has(file.carId)) heroByCar.set(file.carId, file); });
     const [totalRow] = await db.select({ value: count() }).from(cars).where(where);
-    const categoryRows = await db.selectDistinct({ category: cars.category }).from(cars).where(staff ? undefined : eq(cars.status, "released")).orderBy(cars.category);
+    const categoryRows = await db.selectDistinct({ category: cars.category }).from(cars).where(visibilityFilter).orderBy(cars.category);
     const total = totalRow?.value || 0;
     return Response.json({ cars: records.map((record) => ({ ...record, detail: canSeeSensitive ? record.detail : "", expectedPrice: canSeeSensitive ? record.expectedPrice : "", heroImageUrl: heroByCar.has(record.id) ? `/api/registry/${record.id}/photos/${heroByCar.get(record.id)!.id}` : undefined })), total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), categories: categoryRows.map((row) => row.category).filter(Boolean), access: staff ? "staff" : paidMember ? "paid" : approvedMember ? "free" : "public" });
   } catch (error) {

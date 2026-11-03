@@ -1,3 +1,4 @@
+import { canViewRegistryCar } from "@/lib/registry-access";
 import { and, eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const carId = typeof body.carId === "string" ? body.carId : "";
     const [car] = await getDb().select().from(cars).where(eq(cars.id, carId)).limit(1);
     const staff = account.role === "admin" || account.role === "barnaby";
-    const visible = car && (staff || (account.role === "member" && car.status === "released"));
+    const visible = car && (canViewRegistryCar(car, staff, account.role === "member"));
     if (!visible) return Response.json({ error: "This vehicle is not available to your account." }, { status: 403 });
     const now = Date.now();
     await getDb().insert(dossierRequests).values({ id: crypto.randomUUID(), carId, requesterUserId: account.userId, requesterEmail: account.email, status: "new", createdAt: now, updatedAt: now }).onConflictDoUpdate({

@@ -1,3 +1,4 @@
+import { canViewRegistryCar } from "@/lib/registry-access";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db";
@@ -19,7 +20,7 @@ export async function GET(request: Request, context: RouteContext) {
     const canSeeSensitive = staff || paidMember;
     const [car] = await getDb().select().from(cars).where(eq(cars.id, id)).limit(1);
     if (!car) return Response.json({ error: "Vehicle not found." }, { status: 404 });
-    const visible = staff || (member && car.status === "released");
+    const visible = canViewRegistryCar(car, staff, Boolean(member));
     if (!visible) return Response.json({ error: "This vehicle is not available to your account." }, { status: 403 });
 
     const photos = await getDb().select({ id: carFiles.id, filename: carFiles.filename, category: carFiles.category, createdAt: carFiles.createdAt })

@@ -1,3 +1,4 @@
+import { canViewRegistryCar } from "@/lib/registry-access";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db";
@@ -19,7 +20,7 @@ export async function GET(request: Request, context: RouteContext) {
     if (!car) return new Response("Not found", { status: 404 });
     const [file] = await getDb().select().from(carFiles).where(and(eq(carFiles.id, fileId), eq(carFiles.carId, id), inArray(carFiles.category, ["hero", "photos", "video"]))).limit(1);
     if (!file || (!file.contentType.startsWith("image/") && !file.contentType.startsWith("video/"))) return new Response("Not found", { status: 404 });
-    if (!staff && car.status !== "released") return new Response("Forbidden", { status: 403 });
+    if (!canViewRegistryCar(car, staff, Boolean(member))) return new Response("Forbidden", { status: 403 });
     if (!account && file.category !== "hero") return new Response("Forbidden", { status: 403 });
     if (account && !staff && !member) return new Response("Forbidden", { status: 403 });
     if (member && !paidMember) {
@@ -34,7 +35,7 @@ export async function GET(request: Request, context: RouteContext) {
     if (!object) return new Response("Not found", { status: 404 });
     const headers = new Headers();
     object.writeHttpMetadata(headers);
-    headers.set("Cache-Control", account ? "private, max-age=300" : "public, max-age=300, s-maxage=300");
+    headers.set("Cache-Control", "private, no-store");
     headers.set("Accept-Ranges", "bytes");
     headers.set("X-Content-Type-Options", "nosniff");
     return new Response(object.body, { headers });
