@@ -1237,7 +1237,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
     if (destination === 0 && moved.serverId) void styleListingHero(moved.serverId);
   };
 
-  const saveCar = async (status = "intake", receivedOverride = received, visibilityOverride = visibility) => {
+  const saveCar = async (status?: string, receivedOverride = received, visibilityOverride = visibility) => {
     if (!savedCarId) return false;
     setSaving(true);
     setSaveError("");
@@ -1263,12 +1263,12 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
   const toggleReceived = (id: Exclude<FileCategory, "records">) => {
     const next = received.includes(id) ? received.filter((item) => item !== id) : [...received, id];
     setReceived(next);
-    void saveCar("intake", next);
+    void saveCar(undefined, next);
   };
 
   const chooseVisibility = (next: string) => {
     setVisibility(next);
-    void saveCar("intake", received, next);
+    void saveCar(undefined, received, next);
   };
 
   const saveAndGo = async (next: number) => {
@@ -1421,7 +1421,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
     setPrefilledFields(applied);
     setDocumentSourceSummary(typeof extracted.fields.sourceSummary === "string" ? extracted.fields.sourceSummary : "");
 
-    const saveResponse = await fetch(`/api/cars/${carId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...next, received, visibility, status: "intake" }) });
+    const saveResponse = await fetch(`/api/cars/${carId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...next, received, visibility }) });
     const saved = await saveResponse.json() as { error?: string };
     if (!saveResponse.ok) throw new Error(saved.error || "The extracted fields could not be saved.");
     return applied;
@@ -1556,7 +1556,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
             <h1 className="mt-3 font-display text-5xl leading-none sm:text-6xl">{existingCarId ? carName : "Add a Car"}</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-black/58">Get the deal into the system now. Photos and paperwork can follow.</p>
           </div>
-          <div className="rounded-lg border border-[#60765c]/24 bg-[#60765c]/8 px-4 py-3 text-sm font-semibold text-[#52654e]"><ShieldCheck className="mr-2 inline size-4" />Secure storage active</div>
+          <div className="flex flex-wrap items-center gap-3"><div className="rounded-lg border border-[#60765c]/24 bg-[#60765c]/8 px-4 py-3 text-sm font-semibold text-[#52654e]"><ShieldCheck className="mr-2 inline size-4" />Secure storage active</div>{savedCarId && <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-[#806c49]/20 bg-white px-4 text-sm font-semibold text-[#6f5b39]">Upload finished hero<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Upload finished hero" onChange={(event) => { void handleUploads(event.target.files, "hero"); event.currentTarget.value = ""; }} /></label>}</div>
         </div>
 
         <nav className="mt-9 grid gap-2 rounded-2xl border border-black/10 bg-white/55 p-2 sm:grid-cols-4" aria-label="Car intake progress">
@@ -1696,7 +1696,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                             <p className="mt-1 text-sm text-black/45">{item.id === "hero" && heroProcessing ? "Automatically matching the homepage setting and color grade…" : savedCount ? `${savedCount} file${savedCount === 1 ? "" : "s"} saved` : item.help}</p>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {item.id === "hero" ? <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-[#806c49]/20 bg-white px-4 text-sm font-semibold text-[#6f5b39]">Upload finished hero<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Upload finished hero" onChange={(event) => { void handleUploads(event.target.files, "hero"); event.currentTarget.value = ""; }} /></label> : <>
+                            {item.id === "hero" ? <span className="text-sm text-black/50">Upload a finished hero using the control above.</span> : <>
                             {item.id !== "photos" && item.id !== "video" && (
                               <label className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-black/14 bg-white px-4 text-sm font-semibold hover:border-[#806c49]">
                                 <Camera className="mr-2 size-4" />Scan / photograph

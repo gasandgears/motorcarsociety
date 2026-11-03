@@ -31,7 +31,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     const { id } = await context.params;
     const body = await request.json() as Record<string, unknown>;
     const visibility = ["private", "members", "public"].includes(String(body.visibility)) ? String(body.visibility) : "private";
-    const status = ["intake", "review", "ready", "released"].includes(String(body.status)) ? String(body.status) : "intake";
+    const validStatuses = ["intake", "review", "ready", "released"];
+    if ("status" in body && !validStatuses.includes(String(body.status))) return Response.json({ error: "Choose a valid vehicle status." }, { status: 400 });
+    // Ordinary edits omit status, preserving the database's current workflow state.
+    const statusUpdate = "status" in body ? { status: String(body.status) } : {};
     const received = Array.isArray(body.received)
       ? body.received
           .map((item) => cleanText(item, 24))
@@ -64,7 +67,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       restorationSummary: cleanText(body.restorationSummary, 12000),
       receivedCategories: Array.from(new Set(received)).join(","),
       visibility,
-      status,
+      ...statusUpdate,
       updatedAt: Date.now(),
     };
     const saved = await getDb().update(cars).set(updates).where(eq(cars.id, id)).returning();
