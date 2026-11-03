@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ComingSoon } from "@/components/coming-soon";
+import { ComingSoonSettings } from "@/components/coming-soon-settings";
 import {
   Dialog,
   DialogContent,
@@ -351,6 +353,8 @@ function Registry({ setView, onOpenCar, userEmail, showMemberActions = true }: {
           {pageCount > 1 && <nav className="mt-8 flex items-center justify-center gap-4" aria-label="Registry pages"><Button variant="outline" disabled={page <= 1} onClick={() => { setLoading(true); setPage((current) => current - 1); window.scrollTo({ top: document.body.scrollHeight / 2, behavior: "smooth" }); }} className="border-white/16 bg-transparent text-white hover:bg-white hover:text-black"><ChevronLeft className="mr-2 size-4" />Previous</Button><span className="text-sm text-white/52">Page {page} of {pageCount}</span><Button variant="outline" disabled={page >= pageCount} onClick={() => { setLoading(true); setPage((current) => current + 1); window.scrollTo({ top: document.body.scrollHeight / 2, behavior: "smooth" }); }} className="border-white/16 bg-transparent text-white hover:bg-white hover:text-black">Next<ChevronRight className="ml-2 size-4" /></Button></nav>}
         </div>
       </section>
+
+      <ComingSoon />
 
       {showMemberActions && <section className="bg-[#e9e5dc] px-5 py-16 text-[#171918] sm:px-8 lg:px-12 lg:py-20">
         <div className="mx-auto grid max-w-[90rem] gap-10 lg:grid-cols-[1fr_1.15fr] lg:items-center">
@@ -1634,6 +1638,7 @@ function CarIntake({ setView, existingCarId, onCarCreated, onPreview, signInPath
                     ))}
                   </div>
                 </fieldset>
+                <ComingSoonSettings carId={savedCarId} />
                 <div className="mt-8 grid gap-6 sm:grid-cols-2">
                   <div><label className="admin-label" htmlFor="seller-email">Seller email</label><input id="seller-email" type="email" value={car.email} onChange={(event) => setField("email", event.target.value)} className="admin-field mt-2" placeholder="owner@example.com" /></div>
                   <div><label className="admin-label" htmlFor="car-location">Car location</label><input id="car-location" value={car.location} onChange={(event) => setField("location", event.target.value)} className="admin-field mt-2" placeholder="Newport Beach, California" /></div>
@@ -2138,7 +2143,7 @@ function AdminConsole({ onOpenCar, section }: { onOpenCar: (id: string) => void;
     <main className="min-h-[calc(100vh-5.25rem)] bg-[#e9e5dc] px-5 py-12 text-[#171918] sm:px-8 lg:px-12">
       <div className="mx-auto max-w-[90rem]">
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#806c49]">Private administration</p>
-        <div className="mt-3"><h1 className="font-display text-5xl sm:text-6xl">Admin Console</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-black/58">Manage requests, members, client demand and Registry releases from focused workspaces.</p></div>
+        <div className="mt-3"><h1 className="font-display text-5xl sm:text-6xl">Admin Console</h1><a href="/admin/coming-soon-inquiries" className="mt-4 inline-block text-sm font-semibold underline">Coming Soon inquiries</a><p className="mt-4 max-w-2xl text-lg leading-8 text-black/58">Manage requests, members, client demand and Registry releases from focused workspaces.</p></div>
         <nav className="mt-8 flex gap-2 overflow-x-auto border-b border-black/12 pb-3" aria-label="Admin Console navigation">
           {adminLinks.map((link) => <a key={link.id} href={`/admin/${link.id}`} className={`shrink-0 rounded-lg px-4 py-3 text-sm font-semibold transition ${section === link.id ? "bg-[#171918] text-white" : "bg-white/55 text-black/58 hover:bg-white hover:text-black"}`}>{link.label}</a>)}
         </nav>

@@ -1,0 +1,13 @@
+"use client";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+export function ComingSoonSettings({ carId }: { carId: string | null }) {
+  const [title, setTitle] = useState(""), [enabled, setEnabled] = useState(false), [confirmed, setConfirmed] = useState(false), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
+  useEffect(() => { if (!carId) return; let active = true; fetch(`/api/cars/${carId}/coming-soon`, { cache: "no-store" }).then(r => r.json()).then(data => { if (active) { setTitle(data.preview?.publicTitle || ""); setEnabled(Boolean(data.preview?.enabled)); } }).catch(() => { if (active) setMessage("Preview settings could not be loaded."); }); return () => { active = false; }; }, [carId]);
+  async function save() {
+    if (!carId) return; setBusy(true); setMessage("");
+    try { const response = await fetch(`/api/cars/${carId}/coming-soon`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ publicTitle: title, enabled, confirmed }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); setMessage("Coming Soon settings saved."); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Settings could not be saved."); } finally { setBusy(false); }
+  }
+  return <section className="mt-8 rounded-xl border border-black/10 bg-[#f7f5f0] p-5"><h3 className="font-display text-2xl">Coming Soon preview</h3><p className="mt-2 text-sm leading-6 text-black/60">Only the public title and selected hero cover appear. Disable this preview for any confidentiality restriction. Releasing the car removes it from Coming Soon automatically.</p>{carId ? <><label className="mt-4 flex gap-3 text-sm"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />Show a Coming Soon preview</label><label className="mt-4 block text-sm">Verified public title<input value={title} onChange={e => setTitle(e.target.value)} maxLength={140} className="admin-field mt-2" placeholder="Basic verified identity only; no chassis, seller or location" /></label><label className="mt-4 flex gap-3 text-sm leading-6"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I checked the identity, cover and owner restrictions. These preview details are safe for public display.</label><Button type="button" onClick={() => void save()} disabled={busy} className="mt-4">{busy ? "Saving…" : "Save preview settings"}</Button></> : <p className="mt-4 text-sm">Save the car file first to configure its public preview.</p>}{message && <p role="status" className="mt-3 text-sm">{message}</p>}</section>;
+}

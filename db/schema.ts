@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const accounts = pgTable(
   "accounts",
@@ -230,3 +230,25 @@ export const dossierRequests = pgTable(
     index("idx_dossier_requests_status_created").on(table.status, table.createdAt),
   ],
 );
+
+export const comingSoonPreviews = pgTable("coming_soon_previews", {
+  carId: uuid("car_id").primaryKey().references(() => cars.id, { onDelete: "cascade" }),
+  publicTitle: text("public_title").notNull(),
+  coverFileId: uuid("cover_file_id").notNull().references(() => carFiles.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull().default(false),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+});
+export const carInquiries = pgTable("car_inquiries", {
+  id: text("id").primaryKey(),
+  carId: uuid("car_id").notNull().references(() => cars.id, { onDelete: "cascade" }),
+  carTitle: text("car_title").notNull(),
+  name: text("name").notNull(), email: text("email").notNull(), phone: text("phone").notNull(),
+  ipHash: text("ip_hash").notNull(),
+  notificationStatus: text("notification_status").notNull().default("pending"),
+  consentedAt: bigint("consented_at", { mode: "number" }).notNull(),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  notifiedAt: bigint("notified_at", { mode: "number" }),
+}, table => [index("car_inquiries_ip_created").on(table.ipHash, table.createdAt), index("car_inquiries_email_created").on(table.email, table.createdAt), index("car_inquiries_car_created").on(table.carId, table.createdAt)]);
+export const newsletterSignupAttempts = pgTable("newsletter_signup_attempts", {
+  id: text("id").primaryKey(), ipHash: text("ip_hash").notNull(), createdAt: bigint("created_at", { mode: "number" }).notNull(),
+}, table => [index("newsletter_signup_attempts_ip_created").on(table.ipHash, table.createdAt)]);
