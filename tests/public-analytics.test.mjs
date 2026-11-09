@@ -30,6 +30,11 @@ test('one manual GA pageview per navigation, singleton scripts', () => {
   assert.equal(events()[0][2].page_location,'https://www.collectorlegacy.com/');
   assert.equal(events()[0][2].page_referrer,'');
   h.location.pathname='/about'; h.render(); assert.equal(events().length,2);
+  assert.equal(h.window.dataLayer.filter(x => x[0] === 'config').length, 1);
+  const latestSet = h.window.dataLayer.filter(x => x[0] === 'set').at(-1)[1];
+  assert.equal(latestSet.send_page_view, false);
+  assert.equal(latestSet.allow_enhanced_conversions, false);
+  assert.equal(latestSet.page_location, 'https://www.collectorlegacy.com/about');
   h.location.pathname='/admin'; h.render(); assert.equal(h.window['ga-disable-G-HXR3LSPNKL'],true);
   h.location.pathname='/about'; h.render(); assert.equal(events().length,3);
 });
@@ -39,6 +44,9 @@ test('Vercel filter strips query/hash and blocks private, custom and sensitive r
   assert.equal(filter({type:'pageview',url:'https://www.collectorlegacy.com/?email=secret#vin'}).url,'https://www.collectorlegacy.com/');
   assert.equal(filter({type:'pageview',url:'https://www.collectorlegacy.com/cars/private-vin'}),null);
   assert.equal(filter({type:'event',url:'https://www.collectorlegacy.com/'}),null);
+  h.location.pathname='/signin';
+  assert.equal(filter({type:'pageview',url:'https://www.collectorlegacy.com/'}),null);
+  h.location.pathname='/';
   h.document.referrer='https://example.com/?email=private';
   assert.equal(filter({type:'pageview',url:'https://www.collectorlegacy.com/'}),null);
 });

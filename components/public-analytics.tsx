@@ -57,14 +57,13 @@ export function PublicAnalytics() {
       // eslint-disable-next-line prefer-rest-params
       w.gtag = function () { w.dataLayer!.push(arguments); };
       w.gtag("consent", "default", { analytics_storage: "granted", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" });
+      w.gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, allow_enhanced_conversions: false, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
       w.gtag("js", new Date());
       w.gtag("config", ID, {
         send_page_view: false,
         allow_google_signals: false,
         allow_ad_personalization_signals: false,
-        page_location: ORIGIN + pathname,
-        page_referrer: "",
-        page_title: "Motorcar Society public website",
+        allow_enhanced_conversions: false,
       });
       const script = document.createElement("script");
       script.id = "registry-google-analytics";
@@ -73,7 +72,7 @@ export function PublicAnalytics() {
       script.src = `https://www.googletagmanager.com/gtag/js?id=${ID}`;
       document.head.appendChild(script);
     }
-    w.gtag("config", ID, { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
+    w.gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, allow_enhanced_conversions: false, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
     w.gtag("event", "page_view", { send_to: ID, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
 
     if (!w.va) {
