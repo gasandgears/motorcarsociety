@@ -1,3 +1,4 @@
+import { PublicAnalyticsGate } from "@/components/public-analytics-gate";
 import { VisitorSignupGate } from "@/components/visitor-signup-gate";
 import type { Metadata } from "next";
 import "./globals.css";
@@ -82,7 +83,9 @@ export default function RootLayout({
         />
         {children}
         <VisitorSignupGate />
+        <PublicAnalyticsGate />
       </body>
     </html>
   );
 }
+
