@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const ID = "G-HXR3LSPNKL";
+// Keep Google collection paused until tag-level automatic collection is verified off.
+const GOOGLE_ANALYTICS_ENABLED = false;
 const CHOICE = "registry-analytics-consent-v1";
 const ORIGIN = "https://www.collectorlegacy.com";
 const PUBLIC_PATHS = new Set(["/", "/about", "/buying-collector-cars", "/contact", "/submit-a-car", "/privacy", "/terms"]);
@@ -34,7 +36,7 @@ export function PublicAnalytics() {
     const w = window as unknown as AnalyticsWindow;
     const onStorage = (event: StorageEvent) => {
       if (event.key !== CHOICE && event.key !== null) return;
-      w[`ga-disable-${ID}`] = !allowed();
+      w[`ga-disable-${ID}`] = !GOOGLE_ANALYTICS_ENABLED || !allowed();
       if (!allowed()) window.location.reload();
     };
     window.addEventListener("storage", onStorage);
@@ -46,18 +48,18 @@ export function PublicAnalytics() {
 
   useEffect(() => {
     const w = window as unknown as AnalyticsWindow;
-    w[`ga-disable-${ID}`] = !allowed();
+    w[`ga-disable-${ID}`] = !GOOGLE_ANALYTICS_ENABLED || !allowed();
     if (!allowed()) { lastPage.current = null; return; }
     if (lastPage.current === pathname) return;
     lastPage.current = pathname;
 
-    if (!w.gtag) {
+    if (GOOGLE_ANALYTICS_ENABLED && !w.gtag) {
       w.dataLayer = w.dataLayer || [];
       // Google's command queue requires the standard arguments object.
       // eslint-disable-next-line prefer-rest-params
       w.gtag = function () { w.dataLayer!.push(arguments); };
       w.gtag("consent", "default", { analytics_storage: "granted", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" });
-      w.gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, allow_enhanced_conversions: false, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
+      if (GOOGLE_ANALYTICS_ENABLED) w.gtag!("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, allow_enhanced_conversions: false, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
       w.gtag("js", new Date());
       w.gtag("config", ID, {
         send_page_view: false,
@@ -72,8 +74,8 @@ export function PublicAnalytics() {
       script.src = `https://www.googletagmanager.com/gtag/js?id=${ID}`;
       document.head.appendChild(script);
     }
-    w.gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, allow_enhanced_conversions: false, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
-    w.gtag("event", "page_view", { send_to: ID, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
+    if (GOOGLE_ANALYTICS_ENABLED) w.gtag!("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, allow_enhanced_conversions: false, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
+    if (GOOGLE_ANALYTICS_ENABLED) w.gtag!("event", "page_view", { send_to: ID, page_location: ORIGIN + pathname, page_referrer: "", page_title: "Motorcar Society public website" });
 
     if (!w.va) {
       w.va = (...args: unknown[]) => { (w.vaq = w.vaq || []).push(args); };
@@ -102,7 +104,7 @@ export function PublicAnalytics() {
 
   function choose(value: string) {
     try { localStorage.setItem(CHOICE, value); } catch { return; }
-    (window as unknown as AnalyticsWindow)[`ga-disable-${ID}`] = value !== "yes";
+    (window as unknown as AnalyticsWindow)[`ga-disable-${ID}`] = !GOOGLE_ANALYTICS_ENABLED || value !== "yes";
     setChoice(value);
     setEditing(false);
     // A full navigation clears already-loaded analytics after a withdrawal.

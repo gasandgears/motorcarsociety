@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 const source = fs.readFileSync(new URL('../components/public-analytics.tsx', import.meta.url), 'utf8');
-function harness({ consent = null, path = '/', referrer = '', dnt = '', gpc = false, host = 'www.collectorlegacy.com' } = {}) {
+function harness({ consent = null, path = '/', referrer = '', dnt = '', gpc = false, host = 'www.collectorlegacy.com', googleEnabled = true } = {}) {
   const effects = [], scripts = [], ref = { current: null };
   const location = { pathname: path, hostname: host, reload() {} };
   const window = { addEventListener() {}, removeEventListener() {} };
@@ -13,7 +13,7 @@ function harness({ consent = null, path = '/', referrer = '', dnt = '', gpc = fa
   const exports = {};
   const context = { exports, window, document, location, navigator: { doNotTrack: dnt, globalPrivacyControl: gpc }, localStorage: { getItem: () => consent, setItem: (_k,v) => { consent = v; } }, URL, Date, queueMicrotask: () => {},
     require: n => n === 'react' ? { useEffect: f => effects.push(f), useRef: () => ref, useState: v => [v, () => {}] } : n === 'next/navigation' ? { usePathname: () => location.pathname } : { jsx: () => null, jsxs: () => null } };
-  vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, context);
+  vm.runInNewContext(ts.transpileModule(googleEnabled ? source.replace('const GOOGLE_ANALYTICS_ENABLED = false;', 'const GOOGLE_ANALYTICS_ENABLED = true;') : source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, context);
   function render() { effects.length = 0; exports.PublicAnalytics(); effects.forEach(f => f()); }
   return { render, scripts, window, location, document };
 }
@@ -49,4 +49,12 @@ test('Vercel filter strips query/hash and blocks private, custom and sensitive r
   h.location.pathname='/';
   h.document.referrer='https://example.com/?email=private';
   assert.equal(filter({type:'pageview',url:'https://www.collectorlegacy.com/'}),null);
+});
+
+test('Google collection is paused while Vercel remains opt-in', () => {
+  const h = harness({consent:'yes',googleEnabled:false}); h.render();
+  assert.equal(h.scripts.length,1);
+  assert.equal(h.scripts[0].src,'/_vercel/insights/script.js');
+  assert.equal(h.window['ga-disable-G-HXR3LSPNKL'],true);
+  assert.equal(h.window.gtag,undefined);
 });
